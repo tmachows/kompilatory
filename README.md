@@ -1,2 +1,2 @@
 # kompilatory
-Student's cooperation for 5th term's course
+Students' cooperation in 5th term's course
