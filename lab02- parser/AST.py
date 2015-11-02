@@ -133,11 +133,10 @@ class Id(Expression):
         self.id = id
 
 class BinExpr(Expression):
-
     def __init__(self, left, op, right):
-        self.left = left
-        self.op = op
-        self.right = right
+        self.expr1 = left
+        self.operator = op
+        self.expr2 = right
 
 class ExpressionInPar(Expression):
     def __init__(self, expression, error):

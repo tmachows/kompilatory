@@ -278,7 +278,7 @@ class Cparser(object):
     def p_fundefs(self, p):
         """fundefs : fundefs fundef
                    | fundef  """
-        if len(p) > 1:
+        if len(p) > 2:
             p[0] = AST.FunctionDefinitions(p[2], p[1])
         else:
             p[0] = AST.FunctionDefinitions(p[1], None)
