@@ -39,23 +39,39 @@ class Cparser(object):
 
     
     def p_program(self, p):
-        """program : declarations fundefs instructions"""
-        p[0] = AST.Program(p[1], p[2], p[3])
+        """program : blocks"""
+        p[0] = AST.Program(p[1])
         p[0].line = self.scanner.lexer.lineno
         if self.no_error:
-            p[0].print_tree(0)
+            # p[0].print_tree(0)
             pass
+			
+    def p_blocks(self, p):
+        """blocks : blocks block
+                  | block """
+        if len(p) > 2:
+            p[0] = AST.Blocks(p[2], p[1])
+        else:
+            p[0] = AST.Blocks(p[1], None)
+        p[0].line = self.scanner.lexer.lineno
+		
+    def p_block(self, p):
+        """block : fundef
+                 | instruction
+                 | declaration """
+        p[0] = p[1]
+        p[0].line = self.scanner.lexer.lineno
 
             
-    def p_declarations(self, p):
-        """declarations : declarations declaration
-                        | """
-        if self.no_error:
-            if len(p) > 1:
-                p[0] = AST.Declarations(p[1], p[2])
-            else:
-                p[0] = AST.Declarations(None, None)
-            p[0].line = self.scanner.lexer.lineno
+#    def p_declarations(self, p):
+#       """declarations : declarations declaration
+#                      | """
+#        if self.no_error:
+#            if len(p) > 1:
+#                p[0] = AST.Declarations(p[1], p[2])
+#            else:
+#                p[0] = AST.Declarations(None, None)
+#            p[0].line = self.scanner.lexer.lineno
                        
     def p_declaration(self, p):
         """declaration : TYPE inits ';' 
@@ -120,10 +136,7 @@ class Cparser(object):
         """labeled_instr : ID ':' instruction """
         p[0] = AST.Labeled(p[1], p[3])
         p[0].line = self.scanner.lexer.lineno
-  
-# ##### do tego miejsca juz jest raczej ok, ponizej mozna modyfikowac
-  
-    
+     
     
     def p_assignment(self, p):
         """assignment : ID '=' expression ';' """
@@ -192,8 +205,8 @@ class Cparser(object):
         p[0].line = self.scanner.lexer.lineno
     
     def p_compound_instr(self, p):
-        """compound_instr : '{' declarations instructions '}' """
-        p[0] = AST.Compound(p[2],p[3])
+        """compound_instr : '{' blocks '}' """
+        p[0] = AST.Compound(p[2])
         p[0].line = self.scanner.lexer.lineno
     
     def p_condition(self, p):
@@ -275,14 +288,14 @@ class Cparser(object):
     #    """fundefs_opt : fundefs
     #                   | """
       
-    def p_fundefs(self, p):
-        """fundefs : fundefs fundef
-                   | fundef  """
-        if len(p) > 2:
-            p[0] = AST.FunctionDefinitions(p[2], p[1])
-        else:
-            p[0] = AST.FunctionDefinitions(p[1], None)
-        p[0].line = self.scanner.lexer.lineno
+#    def p_fundefs(self, p):
+#        """fundefs : fundefs fundef
+#                   | fundef  """
+#        if len(p) > 2:
+#            p[0] = AST.FunctionDefinitions(p[2], p[1])
+#        else:
+#            p[0] = AST.FunctionDefinitions(p[1], None)
+#       p[0].line = self.scanner.lexer.lineno
             
           
     def p_fundef(self, p):

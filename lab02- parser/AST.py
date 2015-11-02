@@ -5,18 +5,26 @@ class Node(object):
 
         
 class Program(Node):
-    def __init__(self, declarations, fundefs, instructions):
-        self.declarations = declarations
-        self.fundefs = fundefs
-        self.instructions = instructions
+    def __init__(self, blocks):
+        self.blocks = blocks
         
+class Blocks(Node):
+    def __init__(self, block, blocks):
+		self.blocks = []
+		if blocks:
+			self.blocks.extend(blocks.blocks)
+		if block:
+			self.blocks.append(block)
+			
+class Block(Node):
+	pass
         
 class Declarations(Node):
     def __init__(self, declarations, declaration):
         self.declarations = []
         if declarations:
             self.declarations.extend(declarations.declarations)
-        if(declaration):
+        if declaration:
             self.declarations.append(declaration)
             
 class Declaration(Node):
@@ -61,8 +69,6 @@ class Labeled(Instruction):
         self.id = id
         self.instruction = instruction
         
-        
-# ##### do tego miejsca juz jest raczej ok, ponizej mozna modyfikowac
 
 
 class Assignment(Instruction):
@@ -110,9 +116,8 @@ class Break(Instruction):
     pass
 
 class Compound(Instruction):
-    def __init__(self, declarations, instructions):
-        self.declarations = declarations
-        self.instructions = instructions
+    def __init__(self, blocks):
+        self.blocks = blocks
 
 
 class Condition(Node):

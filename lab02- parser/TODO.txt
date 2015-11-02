@@ -1,1 +1,0 @@
-MJ troch ruszy³em pliki cparser i ast ale kompletnie nie wiem co robie

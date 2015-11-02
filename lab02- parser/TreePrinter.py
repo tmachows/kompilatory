@@ -20,9 +20,13 @@ class TreePrinter:
 
     @add_to_class(AST.Program)
     def print_tree(self, indent):
-        self.declarations.print_tree(indent)
-        self.fundefs.print_tree(indent)
-        self.instructions.print_tree(indent)
+        self.blocks.print_tree(indent)
+		
+    @add_to_class(AST.Blocks)
+    def print_tree(self, indent):
+        for block in self.blocks:
+            block.print_tree(indent)
+
 
     @add_to_class(AST.Declarations)
     def print_tree(self, indent):
@@ -116,8 +120,7 @@ class TreePrinter:
 
     @add_to_class(AST.Compound)
     def print_tree(self, indent):
-        self.declarations.print_tree(indent)
-        self.instructions.print_tree(indent)
+        self.blocks.print_tree(indent)
 
     @add_to_class(AST.Const)
     def print_tree(self, indent):
