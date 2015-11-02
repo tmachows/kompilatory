@@ -64,384 +64,129 @@ class Labeled(Instruction):
 		
 # ##### do tego miejsca juz jest raczej ok, ponizej mozna modyfikowac
 
-class BinExpr(Node):
 
-    def __init__(self, op, left, right):
-        self.op = op
-        self.left = left
-        self.right = right
+class Assignment(Instruction):
+    def __init__(self, id, expression):
+        self.id = id
+        self.expression = expression
+
+class Choice(Instruction):
+    def __init__(self, _if, _else):
+        self._if = _if
+        self._else = _else
+		
+class If(Node):
+    def __init__(self, cond, statement, error):
+        self.cond = cond
+        self.statement = statement
+        self.error = error
+
+class Else(Node):
+    def __init__(self, statement):
+        self.statement = statement
+
+class While(Instruction):
+    def __init__(self, cond, statement, error):
+        self.cond = cond
+        self.statement = statement
+        self.error = error
+
+class RepeatUntil(Instruction):
+    def __init__(self, statement, cond):
+        self.cond = cond
+        self.statement = statement
 
 
-class Const(Node):
+class Return(Instruction):
+    def __init__(self, expression):
+        self.expression = expression
 
-    def __init__(self, const_type, value):
-        self.type = const_type
+
+class Continue(Instruction):
+    pass
+
+
+class Break(Instruction):
+    pass
+
+class Compound(Instruction):
+    def __init__(self, declarations, instructions):
+        self.declarations = declarations
+        self.instructions = instructions
+
+
+class Condition(Node):
+    pass
+
+
+class Expression(Condition):
+    pass
+
+
+class Const(Expression):
+    def __init__(self, value):
         self.value = value
 
-class Integer(Const):
-    def __init__(self,const):
-        self.type = const.type
-        self.value = const.value
 
+class Id(Expression):
+    def __init__(self, id):
+        self.id = id
 
-class Float(Const):
-    def __init__(self,const):
-        self.type = const.type
-        self.value = const.value
+class BinExpr(expression):
 
-class String(Const):
-    def __init__(self,const):
-        self.type = const.type
-        self.value = const.value
-      
-class Expression(Node):
-    def __init__(self, expr1, op, expr2):
-        self.expr1 = expr1
-        self.op = op
-        self.expr2 = expr2
-        self.type = types[op][expr1.type][expr2.type]
-        
-class OneArgExpression(Expression):
-    def __init__(self, expr):
-        self.expr1 = expr
-        self.type = expr.type
+    def __init__(self, left, op, right):
+        self.left = left
+		self.op = op
+        self.right = right
 
-class ExpressionInBrackets(Expression):
-    def __init__(self, expr):
-        self.expr1 = expr
-        self.type = expr.type
-    
-class Assignment(Node):
-    def __init__(self, var, expr):
-        self.var = var
-        self.expr = expr
-        self.type = types["="][var.type][expr.type]
-        
-class Condition(Node):
-    def __init__(self, expr1, op, expr2):
-        self.expr1 = expr1
-        self.op = op
-        self.expr2 = expr2
-        self.type = types[op][expr1.type][expr2.type]
+class ExpressionInPar(Expression):
+    def __init__(self, expression, error):
+        self.expression = expression
+        self.error = error
+
+class IdWithPar(Expression):
+    def __init__(self, id, expression_list, error):
+        self.id = id
+        self.expression_list = expression_list
+        self.error = error
 		
-      
-class Choice(Node):
-    def __init__(self, cond, stmt1, stmt2=None):
-        self.cond = cond
-        self.stmt1 = stmt1
-        self.stmt2 = stmt2
+class ExpressionList(Node):
+    def __init__(self, expr_list, expression):
+        self.expressions = []
+        if expr_list:
+            self.expressions.extend(expr_list.expressions)
+        if expression:
+            self.expressions.append(expression)
 
 
-class While(Node):
-    def __init__(self, cond, stmt):
-        self.cond = cond
-        self.stmt = stmt
+class FunctionDefinitions(Node):
+    def __init__(self, fundef, fundefs):
+        self.fundefs = []
+        if fundef:
+            self.fundefs.append(fundef)
+        if fundefs:
+            self.fundefs.extend(fundefs.fundefs)
 
-		
-#????????????????????????????????????????????????????????????????????
-class repeat-until(Node):
-    def __init__(self, stmt,cond):
-        self.cond = cond
-        self.stmt = stmt
-#????????????????????????????????????????????????????????????????????        
+class FunctionDefinition(Node):
+    def __init__(self, type, id, arglist, compound_instr):
+        self.type = type
+        self.id = id
+        self.arglist = arglist
+        self.compound_instr = compound_instr		
 
-		
-		
-cond_reverse = {
-    ">" : "<=",
-    ">=" : "<",
-    "<" : ">=",
-    "<=" : ">",
-    "==" : "!=",
-    "!=" : "==",
-}            
-   
-types = {
-    "+" : {
-        "int" : {
-            "int" : "int",
-            "float" : "float",
-            "string" : None,
-            None : None
-        },
-        "float" : {
-            "int" : "float",
-            "float" : "float",
-            "string" : None,
-            None : None
-        },
-        "string" : {
-            "int" : None,
-            "float" : None,
-            "string" : "string",
-            None : None
-        },
-        None : {
-            "int" : None,
-            "float" : None,
-            "string" : None,
-            None : None
-        }
-    },
-    "-" : {
-        "int" : {
-            "int" : "int",
-            "float" : "float",
-            "string" : None,
-            None : None
-        },
-        "float" : {
-            "int" : "float",
-            "float" : "float",
-            "string" : None,
-            None : None
-        },
-        "string" : {
-            "int" : None,
-            "float" : None,
-            "string" : None,
-            None : None
-        },
-        None : {
-            "int" : None,
-            "float" : None,
-            "string" : None,
-            None : None
-        }
-    },
-    "*" : {
-        "int" : {
-            "int" : "int",
-            "float" : "float",
-            "string" : None,
-            None : None
-        },
-        "float" : {
-            "int" : "float",
-            "float" : "float",
-            "string" : None,
-            None : None
-        },
-        "string" : {
-            "int" : "string",
-            "float" : None,
-            "string" : None,
-            None : None
-        },
-        None : {
-            "int" : None,
-            "float" : None,
-            "string" : None,
-            None : None
-        }
-    },
-    "/" : {
-        "int" : {
-            "int" : "int",
-            "float" : "float",
-            "string" : None,
-            None : None
-        },
-        "float" : {
-            "int" : "float",
-            "float" : "float",
-            "string" : None,
-            None : None
-        },
-        "string" : {
-            "int" : None,
-            "float" : None,
-            "string" : None,
-            None : None
-        },
-        None : {
-            "int" : None,
-            "float" : None,
-            "string" : None,
-            None : None
-        }
-    },
-    ">" : {
-        "int" : {
-            "int" : "int",
-            "float" : "int",
-            "string" : None,
-            None : None
-        },
-        "float" : {
-            "int" : "int",
-            "float" : "int",
-            "string" : None,
-            None : None
-        },
-        "string" : {
-            "int" : None,
-            "float" : None,
-            "string" : "int",
-            None : None
-        },
-        None : {
-            "int" : None,
-            "float" : None,
-            "string" : None,
-            None : None
-        }
-    },
-    ">=" : {
-        "int" : {
-            "int" : "int",
-            "float" : "int",
-            "string" : None,
-            None : None
-        },
-        "float" : {
-            "int" : "int",
-            "float" : "int",
-            "string" : None,
-            None : None
-        },
-        "string" : {
-            "int" : None,
-            "float" : None,
-            "string" : "int",
-            None : None
-        },
-        None : {
-            "int" : None,
-            "float" : None,
-            "string" : None,
-            None : None
-        }
-    },
-    "<" : {
-        "int" : {
-            "int" : "int",
-            "float" : "int",
-            "string" : None,
-            None : None
-        },
-        "float" : {
-            "int" : "int",
-            "float" : "int",
-            "string" : None,
-            None : None
-        },
-        "string" : {
-            "int" : None,
-            "float" : None,
-            "string" : "int",
-            None : None
-        },
-        None : {
-            "int" : None,
-            "float" : None,
-            "string" : None,
-            None : None
-        }
-    },
-    "<=" : {
-        "int" : {
-            "int" : "int",
-            "float" : "int",
-            "string" : None,
-            None : None
-        },
-        "float" : {
-            "int" : "int",
-            "float" : "int",
-            "string" : None,
-            None : None
-        },
-        "string" : {
-            "int" : None,
-            "float" : None,
-            "string" : "int",
-            None : None
-        },
-        None : {
-            "int" : None,
-            "float" : None,
-            "string" : None,
-            None : None
-        }
-    },
-    "==" : {
-        "int" : {
-            "int" : "int",
-            "float" : "int",
-            "string" : None,
-            None : None
-        },
-        "float" : {
-            "int" : "int",
-            "float" : "int",
-            "string" : None,
-            None : None
-        },
-        "string" : {
-            "int" : None,
-            "float" : None,
-            "string" : "int",
-            None : None
-        },
-        None : {
-            "int" : None,
-            "float" : None,
-            "string" : None,
-            None : None
-        }
-    },
-    "!=" : {
-        "int" : {
-            "int" : "int",
-            "float" : "int",
-            "string" : None,
-            None : None
-        },
-        "float" : {
-            "int" : "int",
-            "float" : "int",
-            "string" : None,
-            None : None
-        },
-        "string" : {
-            "int" : None,
-            "float" : None,
-            "string" : "int",
-            None : None
-        },
-        None : {
-            "int" : None,
-            "float" : None,
-            "string" : None,
-            None : None
-        }
-    },
-    "=" : {
-        "int" : {
-            "int" : "int",
-            "float" : "int",
-            "string" : None,
-            None : None
-        },
-        "float" : {
-            "int" : "float",
-            "float" : "float",
-            "string" : None,
-            None : None
-        },
-        "string" : {
-            "int" : None,
-            "float" : None,
-            "string" : "string",
-            None : None
-        },
-        None : {
-            "int" : None,
-            "float" : None,
-            "string" : None,
-            None : None
-        }
-    }
-}
+class ArgumentList(Node):
+    def __init__(self, arg_list, arg):
+        self.arg_list = []
+        if arg_list:
+            self.arg_list.extend(arg_list.arg_list)
+        if arg:
+            self.arg_list.append(arg)
+
+class Argument(Node):
+    def __init__(self, type, id):
+        self.type = type
+        self.id = id
+
+
+
 
