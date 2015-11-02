@@ -1,9 +1,68 @@
 
 class Node(object):
-
     def __str__(self):
         return self.printTree()
 
+		
+class Program(Node):
+	def __init__(self, declarations, fundefs, instructions):
+		self.declarations = declarations
+		self.fundefs = fundefs
+		self.instructions = instructions
+		
+		
+class Declarations(Node):
+	def __init__(self, declarations, declaration):
+		self.declarations = []
+		if declarations:
+			self.declarations.extend(declarations.declarations)
+		if(declaration):
+			self.declarations.append(declaration)
+			
+class Declaration(Node):
+	def __init__(self, type, inits, error):
+		self.type = type
+		self.inits = inits
+		self.error = error
+		
+		
+class Inits(Node):
+	def __init__(self, inits, init):
+		self.inits = []
+		if inits:
+			self.inits.extend(inits.inits)
+		if init:
+			self.inits.append(init)
+			
+class Init(Node):
+	def __init__(self, id, expression):
+		self.id = id
+		self.expression = expression
+		
+		
+class Instructions(Node):
+    def __init__(self, instructions, instruction):
+        self.instructions = []
+		if instructions:
+			self.instructions.extend(instructions.instructions)
+		if instruction:
+			self.instructions.append(instruction)
+			
+class Instruction(Node):
+	pass
+	
+class Print(Instruction):
+    def __init__(self, expression, error):
+        self.expression = expression
+		self.error = error
+		
+class Labeled(Instruction):
+	def __init__(self, id, instruction):
+		self.id = id
+		self.instruction = instruction
+		
+		
+# ##### do tego miejsca juz jest raczej ok, ponizej mozna modyfikowac
 
 class BinExpr(Node):
 
@@ -78,9 +137,6 @@ class While(Node):
         self.cond = cond
         self.stmt = stmt
 
-class Print(Node):
-    def __init__(self, expr):
-        self.expr = expr
 		
 #????????????????????????????????????????????????????????????????????
 class repeat-until(Node):
@@ -88,9 +144,8 @@ class repeat-until(Node):
         self.cond = cond
         self.stmt = stmt
 #????????????????????????????????????????????????????????????????????        
-class Instructions(Node):
-    def __init__(self, instr):
-        self.instrs = [instr]
+
+		
 		
 cond_reverse = {
     ">" : "<=",
