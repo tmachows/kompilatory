@@ -133,11 +133,11 @@ class TreePrinter:
         self.expr1.print_tree(indent + 1)
         self.expr2.print_tree(indent + 1)
 
-    @add_to_class(AST.ExpressionInParentheses)
+    @add_to_class(AST.ExpressionInPar)
     def print_tree(self, indent):
         self.expression.print_tree(indent)
 
-    @add_to_class(AST.IdWithParentheses)
+    @add_to_class(AST.IdWithPar)
     def print_tree(self, indent):
         TreePrinter.print_indented("FUNCALL", indent)
         TreePrinter.print_indented(self.id, indent + 1)
