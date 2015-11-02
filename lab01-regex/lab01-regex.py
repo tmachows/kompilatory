@@ -28,8 +28,10 @@ def processFile(filepath):
     textPattern = re.compile(r'<.*?>' )
     text = re.sub(textPattern,'',text)
 
-    shortcutPattern = re.compile(r' [A-Za-z]{,3}?\.')
+    shortcutPattern = re.compile(r'( [A-Za-z]{,3}?\.)')
     shortcut = len(re.findall(shortcutPattern,text))
+	
+	shortcutPattern = re.compile(r'( [A-Za-z]{,3}?\.)(?!\s[A-Z])')
     text = re.sub(shortcutPattern,' ',text)
 
     decPattern = re.compile(r' (3276[0-7]|327[0-5][0-9]|32[0-6][0-9][0-9]|3[01][0-9][0-9][0-9]|[12][012][0-9][0-9][0-9]|[1-9]?[0-9]{,3}|-(3276[0-8]|327[0-5][0-9]|32[0-6][0-9][0-9]|3[01][0-9][0-9][0-9]|[12][012][0-9][0-9][0-9]|[1-9]?[0-9]{,3})) ')
