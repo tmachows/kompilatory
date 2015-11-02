@@ -3,65 +3,65 @@ class Node(object):
     def __str__(self):
         return self.printTree()
 
-		
+        
 class Program(Node):
-	def __init__(self, declarations, fundefs, instructions):
-		self.declarations = declarations
-		self.fundefs = fundefs
-		self.instructions = instructions
-		
-		
+    def __init__(self, declarations, fundefs, instructions):
+        self.declarations = declarations
+        self.fundefs = fundefs
+        self.instructions = instructions
+        
+        
 class Declarations(Node):
-	def __init__(self, declarations, declaration):
-		self.declarations = []
-		if declarations:
-			self.declarations.extend(declarations.declarations)
-		if(declaration):
-			self.declarations.append(declaration)
-			
+    def __init__(self, declarations, declaration):
+        self.declarations = []
+        if declarations:
+            self.declarations.extend(declarations.declarations)
+        if(declaration):
+            self.declarations.append(declaration)
+            
 class Declaration(Node):
-	def __init__(self, type, inits, error):
-		self.type = type
-		self.inits = inits
-		self.error = error
-		
-		
+    def __init__(self, type, inits, error):
+        self.type = type
+        self.inits = inits
+        self.error = error
+        
+        
 class Inits(Node):
-	def __init__(self, inits, init):
-		self.inits = []
-		if inits:
-			self.inits.extend(inits.inits)
-		if init:
-			self.inits.append(init)
-			
+    def __init__(self, inits, init):
+        self.inits = []
+        if inits:
+            self.inits.extend(inits.inits)
+        if init:
+            self.inits.append(init)
+            
 class Init(Node):
-	def __init__(self, id, expression):
-		self.id = id
-		self.expression = expression
-		
-		
+    def __init__(self, id, expression):
+        self.id = id
+        self.expression = expression
+        
+        
 class Instructions(Node):
     def __init__(self, instructions, instruction):
         self.instructions = []
-		if instructions:
-			self.instructions.extend(instructions.instructions)
-		if instruction:
-			self.instructions.append(instruction)
-			
+        if instructions:
+            self.instructions.extend(instructions.instructions)
+        if instruction:
+            self.instructions.append(instruction)
+            
 class Instruction(Node):
-	pass
-	
+    pass
+    
 class Print(Instruction):
     def __init__(self, expression, error):
         self.expression = expression
-		self.error = error
-		
+        self.error = error
+        
 class Labeled(Instruction):
-	def __init__(self, id, instruction):
-		self.id = id
-		self.instruction = instruction
-		
-		
+    def __init__(self, id, instruction):
+        self.id = id
+        self.instruction = instruction
+        
+        
 # ##### do tego miejsca juz jest raczej ok, ponizej mozna modyfikowac
 
 
@@ -74,7 +74,7 @@ class Choice(Instruction):
     def __init__(self, _if, _else):
         self._if = _if
         self._else = _else
-		
+        
 class If(Node):
     def __init__(self, cond, statement, error):
         self.cond = cond
@@ -132,11 +132,11 @@ class Id(Expression):
     def __init__(self, id):
         self.id = id
 
-class BinExpr(expression):
+class BinExpr(Expression):
 
     def __init__(self, left, op, right):
         self.left = left
-		self.op = op
+        self.op = op
         self.right = right
 
 class ExpressionInPar(Expression):
@@ -149,7 +149,7 @@ class IdWithPar(Expression):
         self.id = id
         self.expression_list = expression_list
         self.error = error
-		
+        
 class ExpressionList(Node):
     def __init__(self, expr_list, expression):
         self.expressions = []
@@ -172,7 +172,7 @@ class FunctionDefinition(Node):
         self.type = type
         self.id = id
         self.arglist = arglist
-        self.compound_instr = compound_instr		
+        self.compound_instr = compound_instr        
 
 class ArgumentList(Node):
     def __init__(self, arg_list, arg):

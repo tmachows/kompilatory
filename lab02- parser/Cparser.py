@@ -3,13 +3,13 @@
 from scanner import Scanner
 import AST
 
-	
+    
 class Cparser(object):
 
     def __init__(self):
         self.scanner = Scanner()
         self.scanner.build()
-		self.no_error = True
+        self.no_error = True
 
     tokens = Scanner.tokens
 
@@ -31,7 +31,7 @@ class Cparser(object):
 
 
     def p_error(self, p):
-		self.no_error = False
+        self.no_error = False
         if p:
             print("Syntax error at line {0}, column {1}: LexToken({2}, '{3}')".format(p.lineno, self.scanner.find_tok_column(p), p.type, p.value))
         else:
@@ -41,55 +41,55 @@ class Cparser(object):
     def p_program(self, p):
         """program : declarations fundefs instructions"""
         p[0] = AST.Program(p[1], p[2], p[3])
-		p[0].line = self.scanner.lexer.lineno
-		if self.no_error:
-			p[0].print_tree(0)
-			pass
+        p[0].line = self.scanner.lexer.lineno
+        if self.no_error:
+            p[0].print_tree(0)
+            pass
 
-			
+            
     def p_declarations(self, p):
         """declarations : declarations declaration
                         | """
         if self.no_error:
             if len(p) > 1:
-				p[0] = AST.Declarations(p[1], p[2])
-			else:
-				p[0] = AST.Declarations(None, None)
-			p[0].line = self.scanner.lexer.lineno
-    				   
-	def p_declaration(self, p):
+                p[0] = AST.Declarations(p[1], p[2])
+            else:
+                p[0] = AST.Declarations(None, None)
+            p[0].line = self.scanner.lexer.lineno
+                       
+    def p_declaration(self, p):
         """declaration : TYPE inits ';' 
                        | error ';' """
-		if len(p) > 3:
-			p[0] = AST.Declaration(p[1], p[2], None)
-		else:
-			p[0] = AST.Declaration(None, None, p[1])
-		p[0].line = self.scanner.lexer.lineno
-					   
-					   
+        if len(p) > 3:
+            p[0] = AST.Declaration(p[1], p[2], None)
+        else:
+            p[0] = AST.Declaration(None, None, p[1])
+        p[0].line = self.scanner.lexer.lineno
+                       
+                       
     def p_inits(self, p):
         """inits : inits ',' init
                  | init """
-		if len(p) > 2:
-			p[0] = AST.Inits(p[1], p[3])
-		else:
-			p[0] = AST.Inits(None, p[1])
-		p[0].line = self.scanner.lexer.lineno
+        if len(p) > 2:
+            p[0] = AST.Inits(p[1], p[3])
+        else:
+            p[0] = AST.Inits(None, p[1])
+        p[0].line = self.scanner.lexer.lineno
 
     def p_init(self, p):
         """init : ID '=' expression """
-		p[0] = AST.Init(p[1], p[3])
-		p[0].line = self.scanner.lexer.lineno
-		
+        p[0] = AST.Init(p[1], p[3])
+        p[0].line = self.scanner.lexer.lineno
+        
     
     def p_instructions(self, p):
         """instructions : instructions instruction
                         | instruction """
         if len(p) > 2:
-			p[0] = AST.Instructions(p[1], p[2])
-		else:
-			p[0] = AST.Instructions(None, p[1])
-		p[0].line = self.scanner.lexer.lineno 
+            p[0] = AST.Instructions(p[1], p[2])
+        else:
+            p[0] = AST.Instructions(None, p[1])
+        p[0].line = self.scanner.lexer.lineno 
     
     def p_instruction(self, p):
         """instruction : print_instr
@@ -103,24 +103,23 @@ class Cparser(object):
                        | continue_instr
                        | compound_instr
                        | expression ';' """
-        if no_error:
-            p[0] = p[1]
-			p[0].line = self.scanner.lexer.lineno
+        p[0] = p[1]
+        p[0].line = self.scanner.lexer.lineno
     
-	
+    
     def p_print_instr(self, p):
         """print_instr : PRINT expression ';'
                        | PRINT error ';' """
-		if isinstance(p[2], AST.Expression):
-			p[0] = AST.Print(p[2], None)
-		else:
-			p[0] = AST.Print(None, p[2])
-		p[0].line = self.scanner.lexer.lineno
-		
-	def p_labeled_instr(self, p):
+        if isinstance(p[2], AST.Expression):
+            p[0] = AST.Print(p[2], None)
+        else:
+            p[0] = AST.Print(None, p[2])
+        p[0].line = self.scanner.lexer.lineno
+        
+    def p_labeled_instr(self, p):
         """labeled_instr : ID ':' instruction """
-		p[0] = AST.Labeled(p[1], p[3])
-		p[0].line = self.scanner.lexer.lineno
+        p[0] = AST.Labeled(p[1], p[3])
+        p[0].line = self.scanner.lexer.lineno
   
 # ##### do tego miejsca juz jest raczej ok, ponizej mozna modyfikowac
   
@@ -128,8 +127,8 @@ class Cparser(object):
     
     def p_assignment(self, p):
         """assignment : ID '=' expression ';' """
-		p[0] = AST.Assignment(p[1], p[3])
-		p[0].line = self.scanner.lexer.lineno
+        p[0] = AST.Assignment(p[1], p[3])
+        p[0].line = self.scanner.lexer.lineno
     
 #????????????????????????????????????????????????????????    
     def p_choice_instr(self, p):
@@ -173,41 +172,41 @@ class Cparser(object):
 
     def p_repeat_instr(self, p):
         """repeat_instr : REPEAT instructions UNTIL condition ';' """
-		p[0] = AST.RepeatUntil(p[2], p[4])
-		p[0].line = self.scanner.lexer.lineno
+        p[0] = AST.RepeatUntil(p[2], p[4])
+        p[0].line = self.scanner.lexer.lineno
     
     def p_return_instr(self, p):
         """return_instr : RETURN expression ';' """
-		p[0] = AST.Return(p[2])
-		p[0].line = self.scanner.lexer.lineno
+        p[0] = AST.Return(p[2])
+        p[0].line = self.scanner.lexer.lineno
     
     def p_continue_instr(self, p):
         """continue_instr : CONTINUE ';' """
         p[0] = AST.Continue()
-		p[0].line = self.scanner.lexer.lineno
+        p[0].line = self.scanner.lexer.lineno
 
     
     def p_break_instr(self, p):
         """break_instr : BREAK ';' """
-		p[0] = AST.Break()
-		p[0].line = self.scanner.lexer.lineno
+        p[0] = AST.Break()
+        p[0].line = self.scanner.lexer.lineno
     
     def p_compound_instr(self, p):
-        """compound_instr : '{' declarations instructions_opt '}' """
-		p[0] = AST.Compound(p[2],p[3])
-		p[0].line = self.scanner.lexer.lineno
+        """compound_instr : '{' declarations instructions '}' """
+        p[0] = AST.Compound(p[2],p[3])
+        p[0].line = self.scanner.lexer.lineno
     
     def p_condition(self, p):
         """condition : expression"""
-	    p[0] = p[1]
-		p[0].line = self.scanner.lexer.lineno
+        p[0] = p[1]
+        p[0].line = self.scanner.lexer.lineno
 
     def p_const(self, p):
         """const : INTEGER
                  | FLOAT
                  | STRING"""
         p[0] = AST.Const(p[1])
-		p[0].line = self.scanner.lexer.lineno
+        p[0].line = self.scanner.lexer.lineno
     
     def p_expression(self, p):
         """expression : const
@@ -278,18 +277,18 @@ class Cparser(object):
       
     def p_fundefs(self, p):
         """fundefs : fundefs fundef
-                   | fundef """
-		if len(p) > 1:
-            p[0] = AST.FunctionDefinitions(p[1], p[2])
+                   | fundef  """
+        if len(p) > 1:
+            p[0] = AST.FunctionDefinitions(p[2], p[1])
         else:
-            p[0] = AST.FunctionDefinitions(None, None)
+            p[0] = AST.FunctionDefinitions(p[1], None)
         p[0].line = self.scanner.lexer.lineno
-			
+            
           
     def p_fundef(self, p):
         """fundef : TYPE ID '(' args_list_or_empty ')' compound_instr """
         p[0] = AST.FunctionDefinition(p[1],p[2],p[4],p[6])
-		p[0].line = self.scanner.lexer.lineno
+        p[0].line = self.scanner.lexer.lineno
     
     def p_args_list_or_empty(self, p):
         """args_list_or_empty : args_list
@@ -300,7 +299,7 @@ class Cparser(object):
         else:
             p[0] = AST.ArgumentList(None, None)
         p[0].line = self.scanner.lexer.lineno
-		
+        
     def p_args_list(self, p):
         """args_list : args_list ',' arg 
                      | arg """
@@ -309,10 +308,10 @@ class Cparser(object):
         else:
             p[0] = AST.ArgumentList(None, p[1])
         p[0].line = self.scanner.lexer.lineno
-		
+        
     def p_arg(self, p):
         """arg : TYPE ID """
-		p[0] = AST.Argument(p[1], p[2])
+        p[0] = AST.Argument(p[1], p[2])
         p[0].line = self.scanner.lexer.lineno
 
 
