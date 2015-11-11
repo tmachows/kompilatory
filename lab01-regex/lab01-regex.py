@@ -13,13 +13,13 @@ def processFile(filepath):
 #  INSERT YOUR CODE HERE
 #  -->
 
-    authorPattern = re.compile(r'<META NAME="AUTOR" CONTENT="([^"]*)">')
+    authorPattern = re.compile(r'<META NAME="AUTOR" CONTENT="(.*[^\\])">?')
     author = authorPattern.search(content).group(1)
 
-    sectionPattern = re.compile(r'<META NAME="DZIAL" CONTENT="([^"]*)">')
+    sectionPattern = re.compile(r'<META NAME="DZIAL" CONTENT="(.*[^\\])">?')
     section = sectionPattern.search(content).group(1)
 
-    keywordsPattern = re.compile(r'<META NAME="KLUCZOWE_?\d*" CONTENT="([^"]*)">')
+    keywordsPattern = re.compile(r'<META NAME="KLUCZOWE_?\d*" CONTENT="(.*[^\\])">?')
     keywords = [str(keyword) for keyword in re.findall(keywordsPattern, content)]
 
     textPattern = re.compile(r'<P>.*</P>' ,re.DOTALL)
@@ -27,11 +27,18 @@ def processFile(filepath):
  
     textPattern = re.compile(r'<.*?>' )
     text = re.sub(textPattern,'',text)
+	
+	# emailPattern = re.compile(r'(([^\s\n\.@]+\.?)+@[^\s\n\.@]+\.([^\s\n\.@]+\.?)+[^\s\n\.@]+)')
+    emailPattern = re.compile(r'(([\w_-]+\.?)+@[\w_-]+\.([\w_-]+\.?)+\w+)')
+    emails = [str(x[0]) for x in re.findall(emailPattern, text)]
+    for email in emails:
+        text.replace(email, '')
+    emails = len(set(emails))
 
     shortcutPattern = re.compile(r'( [A-Za-z]{,3}?\.)')
     shortcut = len(re.findall(shortcutPattern,text))
 	
-	shortcutPattern = re.compile(r'( [A-Za-z]{,3}?\.)(?!\s[A-Z])')
+    shortcutPattern = re.compile(r'( [A-Za-z]{,3}?\.)(?!\s[A-Z])')
     text = re.sub(shortcutPattern,' ',text)
 
     decPattern = re.compile(r' (3276[0-7]|327[0-5][0-9]|32[0-6][0-9][0-9]|3[01][0-9][0-9][0-9]|[12][012][0-9][0-9][0-9]|[1-9]?[0-9]{,3}|-(3276[0-8]|327[0-5][0-9]|32[0-6][0-9][0-9]|3[01][0-9][0-9][0-9]|[12][012][0-9][0-9][0-9]|[1-9]?[0-9]{,3})) ')
@@ -43,7 +50,7 @@ def processFile(filepath):
 
     sentencesPattern = re.compile(r'[A-Z].*?([\.!?]+|\n)',re.DOTALL)
     sentences = len(re.findall(sentencesPattern,text))
-    subPattern = re.compile(r'[-]')
+    subPattern = re.compile(r'[-/]')
     # text = re.sub(subPattern,'.',text)
 
     datesPattern = re.compile(r'(?:(?:(?:\d{4}/)?(?:(?:(?:[0-2][0-9]|3[01])/(?:0[13578]|1[02]))|(?:(?:[0-2][0-9]|30)/(?:0[469]|11))|(?:[0-2][0-9]/02))(?:/\d{4})?)|(?:(?:\d{4}-)?(?:(?:(?:[0-2][0-9]|3[01])-(?:0[13578]|1[02]))|(?:(?:[0-2][0-9]|30)-(?:0[469]|11))|(?:[0-2][0-9]-02))(?:-\d{4})?)|(?:(?:\d{4}\.)?(?:(?:(?:[0-2][0-9]|3[01])\.(?:0[13578]|1[02]))|(?:(?:[0-2][0-9]|30)\.(?:0[469]|11))|(?:[0-2][0-9]\.02))(?:\.\d{4})?))')
@@ -57,11 +64,6 @@ def processFile(filepath):
         d = str(d) + str(y)
         d = re.sub(r'\.','',date)
         s.add(date)
-
-    # emailPattern = re.compile(r'(([^\s\n\.]+\.?)+@[^\s\n\.]+\.([^\s\n\.]+\.?)+[^\s\n\.]+)')
-    emailPattern = re.compile(r'(([\w_-]+\.?)+@[\w_-]+\.([\w_-]+\.?)+\w+)')
-    emails = [str(x[0]) for x in re.findall(emailPattern, text)]
-    emails = len(set(emails))
 
 
 
