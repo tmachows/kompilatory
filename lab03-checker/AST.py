@@ -142,6 +142,7 @@ class BinExpr(Expression):
         self.expr1 = left
         self.operator = op
         self.expr2 = right
+        self.children = ( left, right )
 
 class ExpressionInPar(Expression):
     def __init__(self, expression, error):
