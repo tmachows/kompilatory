@@ -7,45 +7,58 @@ class Node(object):
 class Program(Node):
     def __init__(self, blocks):
         self.blocks = blocks
+       # self.children = ( blocks )
         
 class Blocks(Node):
     def __init__(self, block, blocks):
-		self.blocks = []
-		if blocks:
-			self.blocks.extend(blocks.blocks)
-		if block:
-			self.blocks.append(block)
-			
+        self.blocks = []
+       # self.children = []
+        if blocks:
+            self.blocks.extend(blocks.blocks)
+          #  self.children.extend(blocks.blocks)
+        if block:
+            self.blocks.append(block)
+           # self.children.append(block)
+
+            
 class Block(Node):
-	pass
+    pass
         
 class Declarations(Node):
     def __init__(self, declarations, declaration):
         self.declarations = []
+       # self.children = []
         if declarations:
             self.declarations.extend(declarations.declarations)
+           # self.children.extend(declarations.declarations)
         if declaration:
             self.declarations.append(declaration)
+           # self.children.append(declaration)
             
 class Declaration(Node):
     def __init__(self, type, inits, error):
         self.type = type
         self.inits = inits
         self.error = error
+        #self.children = ( type, inits )
         
         
 class Inits(Node):
     def __init__(self, inits, init):
         self.inits = []
+       # self.children = []
         if inits:
             self.inits.extend(inits.inits)
+           # self.children.extend(inits.inits)
         if init:
             self.inits.append(init)
+           # self.children.append(init)
             
 class Init(Node):
     def __init__(self, id, expression):
         self.id = id
         self.expression = expression
+        # self.children = ( id, expression )
         
         
 class Instructions(Node):
@@ -148,12 +161,14 @@ class ExpressionInPar(Expression):
     def __init__(self, expression, error):
         self.expression = expression
         self.error = error
+       # self.children = ( expression )
 
 class IdWithPar(Expression):
     def __init__(self, id, expression_list, error):
         self.id = id
         self.expression_list = expression_list
         self.error = error
+       # self.children = ( id, expression_list )
         
 class ExpressionList(Node):
     def __init__(self, expr_list, expression):

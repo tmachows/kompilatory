@@ -1,5 +1,7 @@
 
 from SymbolTable import SymbolTable, VariableSymbol
+import AST
+
 
 ttype = {}
 arithmetic_operators = ['+', '-', '*', '/', '%']
@@ -22,12 +24,15 @@ for arithmetic_operator in arithmetic_operators:
     ttype[arithmetic_operator]['int']['float'] = 'float'
     ttype[arithmetic_operator]['float']['int'] = 'float'
     ttype[arithmetic_operator]['float']['float'] = 'float'
+
 ttype['+']['string']['string'] = 'string'
 ttype['*']['string']['int'] = 'string'
 ttype['=']['float']['int'] = 'float'
 ttype['=']['float']['float'] = 'float'
 ttype['=']['int']['int'] = 'int'
 ttype['=']['string']['string'] = 'string'
+
+# ttype['=']['int']['float'] = ('int', 'warn')
 
 for operator in bitwise_operators + logical_operators:
     ttype[operator]['int']['int'] = 'int'
@@ -54,13 +59,16 @@ class NodeVisitor(object):
             for elem in node:
                 self.visit(elem, *args)
         else:
-            for child in node.children:
-                if isinstance(child, list):
-                    for item in child:
-                        if isinstance(item, AST.Node):
-                            self.visit(item, *args)
-                elif isinstance(child, AST.Node):
-                    self.visit(child, *args)
+            if node is None:
+                pass
+            else:
+                for child in node.children:
+                    if isinstance(child, list):
+                        for item in child:
+                            if isinstance(item, AST.Node):
+                                self.visit(item, *args)
+                    elif isinstance(child, AST.Node):
+                        self.visit(child, *args)
 
     # simpler version of generic_visit, not so general
     #def generic_visit(self, node):
@@ -203,16 +211,19 @@ class TypeChecker(NodeVisitor):
         type1 = self.visit(node.expr1, tab)    
         type2 = self.visit(node.expr2, tab)    
         op    = node.operator;
-        if type1 is None or not type2 in ttype[operator][type1]:
+        if type1 is None or not type2 in ttype[op][type1]:
+            print op
+            print type1
+            print type2
             print "Incompatible types in line", node.line
         else:
-            return ttype[operator][type1][type2]
+            return ttype[op][type1][type2]
  
-    def visit_ExpressionInParentheses(self, node, tab):
+    def visit_ExpressionInPar(self, node, tab):
         expression = node.expression
         return self.visit(expression, tab)
 
-    def visit_IdWithParentheses(self, node, tab):
+    def visit_IdWithPar(self, node, tab):
         variable = self.findVariable(tab, node.id)
         if variable is None:
             print "Symbol {0} in line {1} not declared before".format(node.id, node.line)
