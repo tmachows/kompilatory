@@ -24,15 +24,13 @@ for arithmetic_operator in arithmetic_operators:
     ttype[arithmetic_operator]['int']['float'] = 'float'
     ttype[arithmetic_operator]['float']['int'] = 'float'
     ttype[arithmetic_operator]['float']['float'] = 'float'
-
 ttype['+']['string']['string'] = 'string'
 ttype['*']['string']['int'] = 'string'
 ttype['=']['float']['int'] = 'float'
 ttype['=']['float']['float'] = 'float'
 ttype['=']['int']['int'] = 'int'
 ttype['=']['string']['string'] = 'string'
-
-# ttype['=']['int']['float'] = ('int', 'warn')
+ttype['=']['int']['float'] = ('int', 'warn')
 
 for operator in bitwise_operators + logical_operators:
     ttype[operator]['int']['int'] = 'int'
@@ -114,10 +112,16 @@ class TypeChecker(NodeVisitor):
             print "Duplicated usage of symbol {0} in line {1}".format(node.id, node.line - 1)
 
         value_type = self.visit(node.expression, tab)
-        if not type == value_type:
+
+        if not value_type in ttype['='][type]:
             print "Value of type {0} cannot be assigned to symbol {1} of type {2} (line {3})" \
                 .format(value_type, node.id, type, node.line - 1)
         else:
+            if "warn" in ttype['='][type][value_type]:
+                print "Warn: Value of type {0} assigned to symbol {1} of type {2} (line {3})" \
+                .format(value_type, node.id, type, node.line - 1)
+        
+            
             tab.put(node.id, VariableSymbol(node.id, type, node.expression))
 
     def visit_Instructions(self, node, tab):
