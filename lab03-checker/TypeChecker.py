@@ -244,9 +244,14 @@ class TypeChecker(NodeVisitor):
             self.visit(fundef, tab)
 
     def visit_FunctionDefinition(self, node, tab):
-        new_tab = SymbolTable(tab, node.id, node.type)
-        self.visit(node.arglist, new_tab)
-        self.visit(node.compound_instr, new_tab, True)
+        fun_name = self.findVariable(tab, node.id)
+        if not fun_name is None:
+            print "Symbol {0} in line {1}  declared before".format(node.id, node.line)
+        else:
+            tab.put(node.id, VariableSymbol(node.id, node.type, node.arglist))
+            new_tab = SymbolTable(tab, node.id, node.type)
+            self.visit(node.arglist, new_tab)
+            self.visit(node.compound_instr, new_tab, True)
 
     def visit_ArgumentList(self, node, tab):
         for arg in node.arg_list:
