@@ -109,17 +109,17 @@ class TypeChecker(NodeVisitor):
 
     def visit_Init(self, node, tab, type):
         if node.id in tab.symbols:
-            print "Duplicated usage of symbol {0} in line {1}".format(node.id, node.line - 1)
+            print "Error: Duplicated usage of symbol {0} in line {1}".format(node.id, node.line)
 
         value_type = self.visit(node.expression, tab)
-
+        
         if not value_type in ttype['='][type]:
-            print "Value of type {0} cannot be assigned to symbol {1} of type {2} (line {3})" \
-                .format(value_type, node.id, type, node.line - 1)
+            print "Error: Value of type {0} cannot be assigned to symbol {1} of type {2} (line {3})" \
+                .format(value_type, node.id, type, node.line)
         else:
             if "warn" in ttype['='][type][value_type]:
-                print "Warn: Value of type {0} assigned to symbol {1} of type {2} (line {3})" \
-                .format(value_type, node.id, type, node.line - 1)
+                print "Warning: Value of type {0} assigned to symbol {1} of type {2} (line {3})" \
+                .format(value_type, node.id, type, node.line)
         
             
             tab.put(node.id, VariableSymbol(node.id, type, node.expression))
@@ -140,13 +140,16 @@ class TypeChecker(NodeVisitor):
     def visit_Assignment(self, node, tab):
         variable = self.findVariable(tab, node.id)
         if variable is None:
-            print "Symbol {0} in line {1} not defined before".format(node.id, node.line - 1)
+            print "Error: Symbol {0} in line {1} not defined before".format(node.id, node.line)
         else:
             value_type = self.visit(node.expression, tab)
             if not value_type in ttype["="][variable.type]:
-                print "Value of type {0} cannot be assigned to symbol {1} of type {2} (line {3})" \
-                    .format(value_type, node.id, variable.type, node.line - 1)
+                print "Error: Value of type {0} cannot be assigned to symbol {1} of type {2} (line {3})" \
+                    .format(value_type, node.id, variable.type, node.line)
             else:
+                if "warn" in ttype["="][variable.type][value_type]:
+                    print "Warning: Value of type {0} assigned to symbol {1} of type {2} (line {3})" \
+                            .format(value_type, node.id, variable.type, node.line)
                 return ttype["="][variable.type][value_type]
                 
     def visit_Choice(self, node, tab):
@@ -202,12 +205,12 @@ class TypeChecker(NodeVisitor):
                 float(value)
                 return 'float'
             except ValueError:
-                print "Value's {0} type is not recognized".format(value)    
+                print "Error: Value's {0} type is not recognized".format(value)    
 
     def visit_Id(self, node, tab):
         variable = self.findVariable(tab, node.id)
         if variable is None:
-            print "Symbol {0} in line {1} not declared before".format(node.id, node.line)
+            print "Error: Symbol {0} in line {1} not declared before".format(node.id, node.line)
         else:
             return variable.type
             
@@ -216,10 +219,10 @@ class TypeChecker(NodeVisitor):
         type2 = self.visit(node.expr2, tab)    
         op    = node.operator;
         if type1 is None or not type2 in ttype[op][type1]:
-            print op
-            print type1
-            print type2
-            print "Incompatible types in line", node.line
+            #print op
+            #print type1
+            #print type2
+            print "Error: Incompatible types in line", node.line
         else:
             return ttype[op][type1][type2]
  
@@ -230,7 +233,7 @@ class TypeChecker(NodeVisitor):
     def visit_IdWithPar(self, node, tab):
         variable = self.findVariable(tab, node.id)
         if variable is None:
-            print "Symbol {0} in line {1} not declared before".format(node.id, node.line)
+            print "Error: Symbol {0} in line {1} not declared before".format(node.id, node.line)
         else:
             self.visit(node.expression_list, tab)
             return variable.type
@@ -246,7 +249,7 @@ class TypeChecker(NodeVisitor):
     def visit_FunctionDefinition(self, node, tab):
         fun_name = self.findVariable(tab, node.id)
         if not fun_name is None:
-            print "Symbol {0} in line {1}  declared before".format(node.id, node.line)
+            print "Error: Symbol {0} in line {1} declared before".format(node.id, node.line)
         else:
             tab.put(node.id, VariableSymbol(node.id, node.type, node.arglist))
             new_tab = SymbolTable(tab, node.id, node.type)
@@ -259,7 +262,7 @@ class TypeChecker(NodeVisitor):
 
     def visit_Argument(self, node, tab):
         if node.id in tab.symbols:
-                print "Duplicated usage of symbol {0} in line {1}".format(node.id, node.line - 1)
+                print "Error: Duplicated usage of symbol {0} in line {1}".format(node.id, node.line)
         else:
             tab.put(node.id, VariableSymbol(node.id, node.type, None))
             return node.type
