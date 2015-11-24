@@ -1,5 +1,5 @@
 
-from SymbolTable import SymbolTable, VariableSymbol
+from SymbolTable import SymbolTable, VariableSymbol, FunctionSymbol
 import AST
 
 
@@ -77,6 +77,7 @@ class NodeVisitor(object):
 
 class TypeChecker(NodeVisitor):
 
+
     def findVariable(self, tab, variable):
         if variable in tab.symbols:
             return tab.get(variable)
@@ -87,6 +88,7 @@ class TypeChecker(NodeVisitor):
 
     def visit_Program(self, node):
         tab = SymbolTable(None, "program", None)
+        self.scope = tab
         self.visit(node.blocks, tab)
         
     def visit_Blocks(self, node, tab):
@@ -96,9 +98,9 @@ class TypeChecker(NodeVisitor):
     def visit_Block(self, node, tab):
         pass
         
-    def visit_Declarations(self, node, tab):
-        for declaration in node.declarations:
-            self.visit(declaration, tab)
+    #def visit_Declarations(self, node, tab):
+    #    for declaration in node.declarations:
+    #        self.visit(declaration, tab)
 
     def visit_Declaration(self, node, tab):
         self.visit(node.inits, tab, node.type)
@@ -184,8 +186,12 @@ class TypeChecker(NodeVisitor):
         if len(args) > 0 and args[0] is True:
             self.visit(node.blocks, tab)
         else:
-            new_tab = SymbolTable(tab, None, None)
-            self.visit(node.blocks, new_tab)
+            #new_tab = SymbolTable(tab, None, None)
+            #self.visit(node.blocks, new_tab)
+  
+            tab = tab.pushScope(node.id)
+            self.visit(node.blocks, tab)
+            tab = tab.popScope()
 
     def visit_Condition(self, node, tab):
         pass
@@ -231,12 +237,22 @@ class TypeChecker(NodeVisitor):
         return self.visit(expression, tab)
 
     def visit_IdWithPar(self, node, tab):
-        variable = self.findVariable(tab, node.id)
-        if variable is None:
-            print "Error: Symbol {0} in line {1} not declared before".format(node.id, node.line)
+        function = self.findVariable(tab, node.id)
+        if function is None:
+            print "Error: Function {0} in line {1} not declared before".format(node.id, node.line)
         else:
+            if len(function.arguments.arg_list) != len(node.expression_list.expressions):
+                print "Error: Wrong number of arguments in line {0}".format(node.line - 1)
+            else:
+                for i in range(len(function.arguments.arg_list)):
+                    arg_type = function.arguments.arg_list[i].type
+                    given_type = self.visit(node.expression_list.expressions[i], tab)
+                    if not given_type in ttype['='][arg_type]:
+                        print "Error: Incompatible types of argument in {0} call in line {1}".format(node.id, node.line)
+                        return None
+                    
             self.visit(node.expression_list, tab)
-            return variable.type
+            return function.type
             
     def visit_ExpressionList(self, node, tab):
         for expression in node.expressions:
@@ -251,10 +267,11 @@ class TypeChecker(NodeVisitor):
         if not fun_name is None:
             print "Error: Symbol {0} in line {1} declared before".format(node.id, node.line)
         else:
-            tab.put(node.id, VariableSymbol(node.id, node.type, node.arglist))
-            new_tab = SymbolTable(tab, node.id, node.type)
-            self.visit(node.arglist, new_tab)
-            self.visit(node.compound_instr, new_tab, True)
+            tab.put(node.id, FunctionSymbol(node.id, node.type, node.arglist))
+            tab = tab.pushScope(node.id)
+            self.visit(node.arglist, tab)
+            self.visit(node.compound_instr, tab, True)
+            tab = tab.popScope()
 
     def visit_ArgumentList(self, node, tab):
         for arg in node.arg_list:
