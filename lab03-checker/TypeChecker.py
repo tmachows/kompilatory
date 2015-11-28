@@ -174,23 +174,22 @@ class TypeChecker(NodeVisitor):
         self.visit(node.statement, tab)
 
     def visit_Return(self, node, tab):
-        
         if not type(self.actFunc)==AST.FunctionDefinition:
             print "Return placed outside of a function in line {0}".format( node.line)
         else:
             rettype = self.visit(node.expression,tab)
-            if rettype != self.actFunc.type and (self.actFunc.type != "float" or rettype != "int"):
+            if rettype != self.actFunc.type :
                 print "Invalid return type of {0} in line {1}. Expected {2}".format(rettype, node.line, self.actFunc.type)
    
         
         
     def visit_Continue(self, node, tab):
-        if not type(self.actFunc)==AST.Compound:
+        if not type(self.actComp)==AST.Compound:
             print "Continue placed outside of a loop in line {0}".format( node.line)
         
 
     def visit_Break(self, node, tab):
-        if not type(self.actFunc)==AST.Compound:
+        if not type(self.actComp)==AST.Compound:
             print "Break placed outside of a loop in line {0}".format( node.line)
         
         
@@ -201,9 +200,9 @@ class TypeChecker(NodeVisitor):
             #new_tab = SymbolTable(tab, None, None)
             #self.visit(node.blocks, new_tab)
             tab = tab.pushScope(node)
-            self.actFunc = node
+            self.actComp = node
             self.visit(node.blocks, tab)
-            self.actFunc = None
+            self.actComp = None
             tab = tab.popScope()
 
     def visit_Condition(self, node, tab):
@@ -282,6 +281,7 @@ class TypeChecker(NodeVisitor):
         else:
             tab.put(node.id, FunctionSymbol(node.id, node.type, node.arglist))
             tab = tab.pushScope(node.id)
+            tab.put(node.id, FunctionSymbol(node.id, node.type, node.arglist))
             self.actFunc = node
             self.visit(node.arglist, tab)
             self.visit(node.compound_instr, tab, True)
