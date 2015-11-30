@@ -182,6 +182,7 @@ class TypeChecker(NodeVisitor):
             rettype = self.visit(node.expression, tab)
             if rettype != self.actFunc.type:
                 print "Error: Invalid return type of {0}, expected {2}, line {1}".format(rettype, node.line-1, self.actFunc.type)
+            self.hasReturn = True
    
         
         
@@ -280,14 +281,18 @@ class TypeChecker(NodeVisitor):
     def visit_FunctionDefinition(self, node, tab):
         fun_name = self.findVariable(tab, node.id)
         if not fun_name is None:
-            print "Error: Symbol {0} declared before, line {1}".format(node.id, node.line)
+            print "Error: Symbol {0} declared before, line {1}".format(node.id, node.arglist.line)
         else:
             tab.put(node.id, FunctionSymbol(node.id, node.type, node.arglist))
             tab = tab.pushScope(node.id)
             tab.put(node.id, FunctionSymbol(node.id, node.type, node.arglist))
             self.actFunc = node
+            self.hasReturn = False
             self.visit(node.arglist, tab)
             self.visit(node.compound_instr, tab, True)
+            if self.hasReturn == False:
+                print "Error: Missing return instruction for {0} function, line {1}".format(node.id, node.arglist.line)
+            self.hasReturn = False
             self.actFunc = None
             tab = tab.popScope()
             
