@@ -9,10 +9,39 @@ sys.setrecursionlimit(10000)
 
 class Interpreter(object):
 
+    def __init__(self):
+        self.memoryStack = MemoryStack()
+        self.declaredType = None
 
     @on('node')
     def visit(self, node):
         pass
+        
+        
+    @when(AST.Program)
+    def visit(self, node):
+        node.blocks.accept(self)
+        
+    @when(AST.Blocks)
+    def visit(self, node):
+        for block in node.blocks:
+            block.accept(self)
+            
+        
+    @when(AST.Declaration)
+    def visit(self, node):
+        self.declaredType = node.type
+        for init in node.inits:
+            init.accept(self)
+            
+    @when(AST.Init)
+    def visit(self, node):
+        expr_val = node.expression.accept(self)
+        self.memoryStack.insert(node.id, expr_val)
+        return expr_val
+        
+        
+    
 
     @when(AST.BinOp)
     def visit(self, node):
