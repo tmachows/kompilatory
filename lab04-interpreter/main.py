@@ -1,9 +1,9 @@
-
 import sys
 import ply.yacc as yacc
 from Cparser import Cparser
-from TreePrinter import TreePrinter
 from TypeChecker import TypeChecker
+from Interpreter import Interpreter
+
 
 if __name__ == '__main__':
 
@@ -17,7 +17,17 @@ if __name__ == '__main__':
     Cparser = Cparser()
     parser = yacc.yacc(module=Cparser)
     text = file.read()
+
     ast = parser.parse(text, lexer=Cparser.scanner)
-    # ast.print_tree(0)
-    typeChecker = TypeChecker()   
-    typeChecker.visit(ast)
+    ast.accept(TypeChecker())
+
+    # jesli wizytor TypeChecker z implementacji w poprzednim lab korzystal z funkcji accept
+    # to nazwa tej ostatniej dla Interpretera powinna zostac zmieniona, np. na accept2 ( ast.accept2(Interpreter()) )
+    # tak aby rozne funkcje accept z roznych implementacji wizytorow nie kolidowaly ze soba
+    ast.accept(Interpreter())
+
+    # in future
+    # ast.accept(OptimizationPass1())
+    # ast.accept(OptimizationPass2())
+    # ast.accept(CodeGenerator())
+   

@@ -89,6 +89,8 @@ class TypeChecker(NodeVisitor):
     def visit_Program(self, node):
         tab = SymbolTable(None, "program", None)
         self.scope = tab
+        self.actFunc = None
+        self.actComp = None
         self.visit(node.blocks, tab)
         
     def visit_Blocks(self, node, tab):
@@ -111,16 +113,16 @@ class TypeChecker(NodeVisitor):
 
     def visit_Init(self, node, tab, type):
         if node.id in tab.symbols:
-            print "Error: Duplicated usage of symbol {0} in line {1}".format(node.id, node.line)
+            print "Error: Duplicated usage of symbol {0}, line {1}".format(node.id, node.line)
 
         value_type = self.visit(node.expression, tab)
         
         if not value_type in ttype['='][type]:
-            print "Error: Value of type {0} cannot be assigned to symbol {1} of type {2} (line {3})" \
+            print "Error: Value of type {0} cannot be assigned to symbol {1} of type {2}, line {3}" \
                 .format(value_type, node.id, type, node.line)
         else:
             if "warn" in ttype['='][type][value_type]:
-                print "Warning: Value of type {0} assigned to symbol {1} of type {2} (line {3})" \
+                print "Warning: Value of type {0} assigned to symbol {1} of type {2}, line {3}" \
                 .format(value_type, node.id, type, node.line)
         
             
@@ -142,21 +144,21 @@ class TypeChecker(NodeVisitor):
     def visit_Assignment(self, node, tab):
         variable = self.findVariable(tab, node.id)
         if variable is None:
-            print "Error: Symbol {0} in line {1} not defined before".format(node.id, node.line)
+            print "Error: Symbol {0} not defined before, line {1}".format(node.id, node.line-1)
         else:
             value_type = self.visit(node.expression, tab)
             if not value_type in ttype["="][variable.type]:
-                print "Error: Value of type {0} cannot be assigned to symbol {1} of type {2} (line {3})" \
-                    .format(value_type, node.id, variable.type, node.line)
+                print "Error: Value of type {0} cannot be assigned to symbol {1} of type {2}, line {3}" \
+                    .format(value_type, node.id, variable.type, node.expression.line)
             else:
                 if "warn" in ttype["="][variable.type][value_type]:
-                    print "Warning: Value of type {0} assigned to symbol {1} of type {2} (line {3})" \
+                    print "Warning: Value of type {0} assigned to symbol {1} of type {2}, line {3}" \
                             .format(value_type, node.id, variable.type, node.line)
                 return ttype["="][variable.type][value_type]
                 
     def visit_Choice(self, node, tab):
         self.visit(node._if, tab)
-        self.visit(node._if, tab)
+        self.visit(node._else, tab)
 
     def visit_If(self, node, tab):
         self.visit(node.cond, tab)
@@ -174,24 +176,24 @@ class TypeChecker(NodeVisitor):
         self.visit(node.statement, tab)
 
     def visit_Return(self, node, tab):
-        
         if not type(self.actFunc)==AST.FunctionDefinition:
-            print "Return placed outside of a function in line {0}".format( node.line)
+            print "Error: Return placed outside of a function, line {0}".format(node.line-2)
         else:
-            rettype = self.visit(node.expression,tab)
-            if rettype != self.actFunc.type and (self.actFunc.type != "float" or rettype != "int"):
-                print "Invalid return type of {0} in line {1}. Expected {2}".format(rettype, node.line, self.actFunc.type)
+            rettype = self.visit(node.expression, tab)
+            if rettype != self.actFunc.type:
+                print "Error: Invalid return type of {0}, expected {2}, line {1}".format(rettype, node.line-1, self.actFunc.type)
+            self.hasReturn = True
    
         
         
     def visit_Continue(self, node, tab):
-        if not type(self.actFunc)==AST.Compound:
-            print "Continue placed outside of a loop in line {0}".format( node.line)
+        if not type(self.actComp)==AST.Compound:
+            print "Error: continue placed outside of a loop, line {0}".format(node.line-1)
         
 
     def visit_Break(self, node, tab):
-        if not type(self.actFunc)==AST.Compound:
-            print "Break placed outside of a loop in line {0}".format( node.line)
+        if not type(self.actComp)==AST.Compound:
+            print "Error: break placed outside of a loop, line {0}".format(node.line-1)
         
         
     def visit_Compound(self, node, tab, *args):
@@ -201,9 +203,9 @@ class TypeChecker(NodeVisitor):
             #new_tab = SymbolTable(tab, None, None)
             #self.visit(node.blocks, new_tab)
             tab = tab.pushScope(node)
-            self.actFunc = node
+            self.actComp = node
             self.visit(node.blocks, tab)
-            self.actFunc = None
+            self.actComp = None
             tab = tab.popScope()
 
     def visit_Condition(self, node, tab):
@@ -229,7 +231,7 @@ class TypeChecker(NodeVisitor):
     def visit_Id(self, node, tab):
         variable = self.findVariable(tab, node.id)
         if variable is None:
-            print "Error: Symbol {0} in line {1} not declared before".format(node.id, node.line)
+            print "Error: Symbol {0} not declared before, line {1}".format(node.id, node.line)
         else:
             return variable.type
             
@@ -241,7 +243,7 @@ class TypeChecker(NodeVisitor):
             #print op
             #print type1
             #print type2
-            print "Error: Incompatible types in line", node.line
+            print "Error: Incompatible types, line", node.line
         else:
             return ttype[op][type1][type2]
  
@@ -252,17 +254,18 @@ class TypeChecker(NodeVisitor):
     def visit_IdWithPar(self, node, tab):
         function = self.findVariable(tab, node.id)
         if function is None:
-            print "Error: Function {0} in line {1} not declared before".format(node.id, node.line)
+            print "Error: Function {0} not declared before, line {1}".format(node.id, node.line)
         else:
             if len(function.arguments.arg_list) != len(node.expression_list.expressions):
-                print "Error: Wrong number of arguments in line {0}".format(node.line - 1)
+                print "Error: Wrong number of arguments in {0} call, line {1}".format(node.id, node.line)
             else:
                 for i in range(len(function.arguments.arg_list)):
                     arg_type = function.arguments.arg_list[i].type
                     given_type = self.visit(node.expression_list.expressions[i], tab)
                     if not given_type in ttype['='][arg_type]:
-                        print "Error: Incompatible types of argument in {0} call in line {1}".format(node.id, node.line)
-                        return None
+                        print "Error: Incompatible types of arguments in {0} call, line {1}".format(node.id, node.line)
+                        #return None
+                        break
                     
             self.visit(node.expression_list, tab)
             return function.type
@@ -278,13 +281,18 @@ class TypeChecker(NodeVisitor):
     def visit_FunctionDefinition(self, node, tab):
         fun_name = self.findVariable(tab, node.id)
         if not fun_name is None:
-            print "Error: Symbol {0} in line {1} declared before".format(node.id, node.line)
+            print "Error: Symbol {0} declared before, line {1}".format(node.id, node.arglist.line)
         else:
             tab.put(node.id, FunctionSymbol(node.id, node.type, node.arglist))
             tab = tab.pushScope(node.id)
+            tab.put(node.id, FunctionSymbol(node.id, node.type, node.arglist))
             self.actFunc = node
+            self.hasReturn = False
             self.visit(node.arglist, tab)
             self.visit(node.compound_instr, tab, True)
+            if self.hasReturn == False:
+                print "Error: Missing return instruction for {0} function, line {1}".format(node.id, node.arglist.line)
+            self.hasReturn = False
             self.actFunc = None
             tab = tab.popScope()
             
@@ -295,7 +303,7 @@ class TypeChecker(NodeVisitor):
 
     def visit_Argument(self, node, tab):
         if node.id in tab.symbols:
-                print "Error: Duplicated usage of symbol {0} in line {1}".format(node.id, node.line)
+                print "Error: Duplicated usage of symbol {0}, line {1}".format(node.id, node.line)
         else:
             tab.put(node.id, VariableSymbol(node.id, node.type, None))
             return node.type

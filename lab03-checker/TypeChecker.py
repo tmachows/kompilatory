@@ -149,7 +149,7 @@ class TypeChecker(NodeVisitor):
             value_type = self.visit(node.expression, tab)
             if not value_type in ttype["="][variable.type]:
                 print "Error: Value of type {0} cannot be assigned to symbol {1} of type {2}, line {3}" \
-                    .format(value_type, node.id, variable.type, node.line)
+                    .format(value_type, node.id, variable.type, node.expression.line)
             else:
                 if "warn" in ttype["="][variable.type][value_type]:
                     print "Warning: Value of type {0} assigned to symbol {1} of type {2}, line {3}" \
