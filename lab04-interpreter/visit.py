@@ -1,5 +1,4 @@
 # visit.py
-# Updated 2013-06-20 to fix bug on line 38
 
 import inspect
 
