@@ -46,9 +46,17 @@ class Interpreter(object):
         self.memoryStack.insert(node.id, expr_val)
         return expr_val
         
+    @when(AST.Inits)
+    def visit(self, node):
+        for init in node.inits:
+            init.accept(self)
         
+    @when(AST.Instructions)
+    def visit(self, node):
+        for instruction in node.instructions:
+            instruction.accept(self)
+            
     
-
     @when(AST.BinExpr)
     def visit(self, node):
         r1 = node.left.accept(self)
@@ -70,6 +78,20 @@ class Interpreter(object):
         expr_accept = node.expression.accept(self)
         self.memoryStack.set(node.id, expr_accept)
         return expr_accept
+        
+    @when(AST.Choice)
+    def visit(self, node):
+        # ???
+        if node._if.accept(self) is not True:
+            if node._else is not None:
+                node._else.accept(self)
+                
+    @when(AST.If)
+    def visit(self, node):
+        if node.cond.accept(self):
+            return node.statement.accept(self)
+        else:
+            pass
 
     @when(AST.Const)
     def visit(self, node):
@@ -82,6 +104,7 @@ class Interpreter(object):
         while node.cond.accept(self):
             r = node.body.accept(self)
         return r
+        
     @when(AST.While)
     def visit(self, node):
         while node.cond.accept(self):
@@ -138,8 +161,8 @@ class Interpreter(object):
 
     @when(AST.Labeled)
     def visit(self, node):
-        pass
+        node.instruction.accept(self)
     
-    @when(AST.PrintInstruction)
+    @when(AST.Print)
     def visit(self, node):
         print node.expression.accept(self)
