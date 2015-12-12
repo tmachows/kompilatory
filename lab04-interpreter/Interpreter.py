@@ -31,7 +31,7 @@ class Interpreter(object):
     @when(AST.Declaration)
     def visit(self, node):
         self.declaredType = node.type
-        for init in node.inits:
+        for init in node.inits.inits:
             init.accept(self)
             
     @when(AST.Declarations)
@@ -59,19 +59,14 @@ class Interpreter(object):
     
     @when(AST.BinExpr)
     def visit(self, node):
-        r1 = node.left.accept(self)
-        r2 = node.right.accept(self)
-        return eval("a" + node.operator + "b", {"a": r1, "b": r2})
+        r1 = node.expr1.accept(self)
+        r2 = node.expr2.accept(self)
+        return eval(("{0}" + node.operator + "{1}").format(r1, r2))
         # try sth smarter than:
         # if(node.op=='+') return r1+r2
         # elsif(node.op=='-') ...
         # but do not use python eval
 
-    @when(AST.RelOp)
-    def visit(self, node):
-        r1 = node.left.accept(self)
-        r2 = node.right.accept(self)
-        # ...
 
     @when(AST.Assignment)
     def visit(self, node):
@@ -92,18 +87,17 @@ class Interpreter(object):
             return node.statement.accept(self)
         else:
             pass
+            
+    @when(AST.Else)
+    def visit(self, node):
+        return node.statement.accept(self)
+        
 
     @when(AST.Const)
     def visit(self, node):
         return node.value
 
         
-    @when(AST.WhileInstr)
-    def visit(self, node):
-        r = None
-        while node.cond.accept(self):
-            r = node.body.accept(self)
-        return r
         
     @when(AST.While)
     def visit(self, node):
@@ -116,7 +110,7 @@ class Interpreter(object):
                 pass
                 
                 
-    @When(AST.RepeatUntil)
+    @when(AST.RepeatUntil)
     def visit(self,node):
         while True:
             try:
@@ -166,3 +160,30 @@ class Interpreter(object):
     @when(AST.Print)
     def visit(self, node):
         print node.expression.accept(self)
+        
+    @when(AST.Id)
+    def visit(self, node):
+        return self.memoryStack.get(node.id)
+        
+    @when(AST.FunctionDefinitions)
+    def visit(self, node):
+        for fundef in node.fundefs:
+            fundef.accept(self)
+        
+    @when(AST.FunctionDefinition)
+    def visit(self, node):
+        self.memoryStack.insert(node.id, node)
+        
+    @when(AST.IdWithPar)
+    def visit(self, node):
+        function = self.memoryStack.get(node.id)
+        functionMemory = Memory(node.id)
+        for argId, argExpr in zip(function.arglist.arg_list, node.expression_list.expressions):
+            functionMemory.put(argId.accept(self), argExpr.accept(self))
+        self.memoryStack.push(functionMemory)
+        try:
+            function.compound_instr.accept(self)
+        except ReturnValueException as e:
+            return e.value
+        finally:
+            self.memoryStack.pop()

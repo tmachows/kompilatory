@@ -29,7 +29,7 @@ class MemoryStack:
     def get(self, name):             # gets from memory stack current value of variable <name>
         ind = range(1, len(self.stack) + 1)
         for i in ind:
-            if self.stack[-i].has_key(name)
+            if self.stack[-i].has_key(name):
                 return self.stack[-i].get(name)
         return None
 
@@ -39,7 +39,7 @@ class MemoryStack:
     def set(self, name, value): # sets variable <name> to value <value>
         ind = range(1, len(self.stack) + 1)
         for i in ind:
-            if self.stack[-i].has_key(name)
+            if self.stack[-i].has_key(name):
                 self.stack[-i].put(name, value)
                 break
         
