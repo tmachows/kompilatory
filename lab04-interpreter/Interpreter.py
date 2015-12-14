@@ -3,7 +3,7 @@ import SymbolTable
 from Memory import *
 from Exceptions import  *
 from visit import *
-import sys
+import sys, time
 
 sys.setrecursionlimit(10000)
 
@@ -12,6 +12,7 @@ class Interpreter(object):
     def __init__(self):
         self.memoryStack = MemoryStack()
         self.declaredType = None
+        self.isFunctionScope = False
 
     @on('node')
     def visit(self, node):
@@ -26,6 +27,10 @@ class Interpreter(object):
     def visit(self, node):
         for block in node.blocks:
             block.accept(self)
+            
+    @when(AST.Block)
+    def visit(self, node):
+        pass
             
         
     @when(AST.Declaration)
@@ -77,7 +82,8 @@ class Interpreter(object):
     @when(AST.Choice)
     def visit(self, node):
         # ???
-        if node._if.accept(self) is not True:
+        if node._if.accept(self) is False:
+            
             if node._else is not None:
                 node._else.accept(self)
                 
@@ -86,7 +92,7 @@ class Interpreter(object):
         if node.cond.accept(self):
             return node.statement.accept(self)
         else:
-            pass
+            return False
             
     @when(AST.Else)
     def visit(self, node):
@@ -120,11 +126,18 @@ class Interpreter(object):
             except BreakException:
                 break
             except ContinueException:
-                pass
+                if node.cond.accept(self):
+                    break
                 
     @when(AST.Compound)
     def visit(self, node):
-        node.blocks.accept(self)
+        if not self.isFunctionScope:
+            newMemory = Memory("scope")
+            self.memoryStack.push(newMemory)
+            node.blocks.accept(self)
+            self.memoryStack.pop()
+        else:
+            node.blocks.accept(self)
 
     @when(AST.Break)
     def visit(self, node):
@@ -181,9 +194,15 @@ class Interpreter(object):
         for argId, argExpr in zip(function.arglist.arg_list, node.expression_list.expressions):
             functionMemory.put(argId.accept(self), argExpr.accept(self))
         self.memoryStack.push(functionMemory)
+        self.isFunctionScope = True
         try:
             function.compound_instr.accept(self)
         except ReturnValueException as e:
             return e.value
         finally:
+            self.isFunctionScope = False
             self.memoryStack.pop()
+            
+    @when(AST.ExpressionInPar)
+    def visit(self, node):
+        return node.expression.accept(self)

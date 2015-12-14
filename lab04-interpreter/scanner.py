@@ -1,4 +1,3 @@
-
 import ply.lex as lex
 
 
@@ -60,8 +59,8 @@ class Scanner(object):
 
 
   def t_LINE_COMMENT(self,t):
-      r'//.*'
-      return t
+      r'\#.*'
+      pass
 
   def t_BLOCK_COMMENT(self,t):
       r'/\*(.|\n)*?\*/'
@@ -99,6 +98,3 @@ class Scanner(object):
       r"[a-zA-Z_]\w*"
       t.type = Scanner.reserved.get(t.value, 'ID')
       return t
-  
-  
-  

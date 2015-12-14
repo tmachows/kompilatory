@@ -99,10 +99,6 @@ class TypeChecker(NodeVisitor):
             
     def visit_Block(self, node, tab):
         pass
-        
-    #def visit_Declarations(self, node, tab):
-    #    for declaration in node.declarations:
-    #        self.visit(declaration, tab)
 
     def visit_Declaration(self, node, tab):
         self.visit(node.inits, tab, node.type)
