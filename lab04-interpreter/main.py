@@ -19,12 +19,16 @@ if __name__ == '__main__':
     text = file.read()
 
     ast = parser.parse(text, lexer=Cparser.scanner)
-    ast.accept(TypeChecker())
+    
+    typeChecker = TypeChecker()
+    ast.accept(typeChecker)
 
     # jesli wizytor TypeChecker z implementacji w poprzednim lab korzystal z funkcji accept
     # to nazwa tej ostatniej dla Interpretera powinna zostac zmieniona, np. na accept2 ( ast.accept2(Interpreter()) )
     # tak aby rozne funkcje accept z roznych implementacji wizytorow nie kolidowaly ze soba
-    ast.accept(Interpreter())
+    
+    if typeChecker.noErrors:
+        ast.accept(Interpreter())
 
     # in future
     # ast.accept(OptimizationPass1())

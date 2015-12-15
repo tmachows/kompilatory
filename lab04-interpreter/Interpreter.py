@@ -81,9 +81,7 @@ class Interpreter(object):
         
     @when(AST.Choice)
     def visit(self, node):
-        # ???
-        if node._if.accept(self) is False:
-            
+        if node._if.accept(self) is False:        
             if node._else is not None:
                 node._else.accept(self)
                 
@@ -100,10 +98,8 @@ class Interpreter(object):
         
 
     @when(AST.Const)
-    def visit(self, node):
-        return node.value
-
-        
+    def visit(self, node):           
+        return node.value     
         
     @when(AST.While)
     def visit(self, node):
@@ -172,7 +168,10 @@ class Interpreter(object):
     
     @when(AST.Print)
     def visit(self, node):
-        print node.expression.accept(self)
+        value = node.expression.accept(self)
+        if isinstance(value, basestring):
+            value = value.replace("\"", "")
+        print value
         
     @when(AST.Id)
     def visit(self, node):
