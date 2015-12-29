@@ -3,7 +3,7 @@ import SymbolTable
 from Memory import *
 from Exceptions import  *
 from visit import *
-import sys, time
+import sys
 
 sys.setrecursionlimit(10000)
 
@@ -134,6 +134,7 @@ class Interpreter(object):
             self.memoryStack.pop()
         else:
             node.blocks.accept(self)
+            
 
     @when(AST.Break)
     def visit(self, node):
