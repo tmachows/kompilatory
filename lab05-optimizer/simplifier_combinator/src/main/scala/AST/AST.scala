@@ -1,29 +1,31 @@
 package AST
 
 object Priority {
-  val binary = Map("lambda" -> 1,
-    "or" -> 2,
-    "and" -> 3,
-    "is" -> 8, "<" -> 8, ">" -> 8, ">=" -> 8, "<=" -> 8, "==" -> 8, "!=" -> 8,
-    "+" -> 9, "-" -> 9,
-    "**"->10, "*" -> 10, "/" -> 10, "%" -> 10)
+  val binary = Map("lambda"->1,
+    "or"->2,
+    "and"->3,
+    "is"->8, "<"->8, ">"->8, ">="->8, "<="->8, "=="->8, "!="->8,
+    "+"->9,  "-"->9,
+    "*"->10, "/"->10, "%"->10,
+    "**"->11)
 
-  val unary = Map("not" -> 4,
-    "+" -> 12, "-" -> 12)
+  val unary = Map("not"->4,
+    "+"->12,  "-"->12)
 }
 
 // sealed trait Node would be also OK
 sealed abstract class Node {
   def toStr = "error: toStr not implemented"
-
   val indent = " " * 4
 }
 
-case class IntNum(value: Int) extends Node {
+trait Num
+
+case class IntNum(value: Int) extends Node with Num {
   override def toStr = value.toString
 }
 
-case class FloatNum(value: Double) extends Node {
+case class FloatNum(value: Double) extends Node with Num {
   override def toStr = value.toString
 }
 
@@ -46,14 +48,10 @@ case class Variable(name: String) extends Node {
 case class Unary(op: String, expr: Node) extends Node {
 
   override def toStr = {
-    var str = expr.toStr
+    var str  = expr.toStr
     expr match {
-      case e@BinExpr(_, _, _) => if (Priority.binary(e.op) <= Priority.unary(op)) {
-        str = "(" + str + ")"
-      }
-      case e@Unary(_, _) => if (Priority.unary(e.op) <= Priority.unary(op)) {
-        str = "(" + str + ")"
-      }
+      case e@BinExpr(_,_,_) => if(Priority.binary(e.op)<=Priority.unary(op)) { str = "(" + str + ")" }
+      case e@Unary(_,_) => if(Priority.unary(e.op)<=Priority.unary(op)) { str = "(" + str + ")" }
       case _ =>
     }
     op + " " + str
@@ -64,48 +62,70 @@ case class Unary(op: String, expr: Node) extends Node {
 case class BinExpr(op: String, left: Node, right: Node) extends Node {
 
   override def toStr = {
-    var leftStr = left.toStr
+    var leftStr  = left.toStr
     var rightStr = right.toStr
     left match {
-      case l@(_: BinExpr) => if (Priority.binary(l.op) < Priority.binary(op)) {
-        leftStr = "(" + leftStr + ")"
-      }
-      case l@(_: Unary) => if (Priority.unary(l.op) < Priority.binary(op)) {
-        leftStr = "(" + leftStr + ")"
-      }
+      case l@(_:BinExpr) => if(Priority.binary(l.op)<Priority.binary(op)) { leftStr = "(" + leftStr + ")" }
+      case l@(_:Unary) => if(Priority.unary(l.op)<Priority.binary(op)) { leftStr = "(" + leftStr + ")" }
       case _ =>
     }
     right match {
-      case r@BinExpr(_, _, _) => if (Priority.binary(r.op) < Priority.binary(op)) {
-        rightStr = "(" + rightStr + ")"
-      }
-      case r@Unary(_, _) => if (Priority.unary(r.op) < Priority.binary(op)) {
-        rightStr = "(" + rightStr + ")"
-      }
+      case r@BinExpr(_,_,_) => if(Priority.binary(r.op)<Priority.binary(op)) { rightStr = "(" + rightStr + ")" }
+      case r@Unary(_,_) => if(Priority.unary(r.op)<Priority.binary(op)) { rightStr = "(" + rightStr + ")" }
       case _ =>
     }
     leftStr + " " + op + " " + rightStr
   }
-  override def equals(that: scala.Any): Boolean = {
-    def uncommutativeEquals(that: BinExpr) = this.left == that.left && this.right == that.right
-    def commutativeEquals(that: BinExpr) = uncommutativeEquals(that) || (this.left == that.right && this.right == that.left)
 
-    that match {
-      case that:BinExpr if this.op == that.op => that.op match {
-        case "+" => commutativeEquals(that)
-        case "*" => commutativeEquals(that)
-        case "or" => commutativeEquals(that)
-        case "and" => commutativeEquals(that)
-        case default => uncommutativeEquals(that)
-      }
-      case default => false
-    }
-  }
+  //    override def equals(obj: Any): Boolean = {
+  //        if(!obj.isInstanceOf[BinExpr]) return false
+  //        val o : BinExpr = obj.asInstanceOf[BinExpr]
+  //
+  //        val commutative: List[String] = List("+", "*", "and", "or", "!=", "==")
+  //
+  //        (this, o) match {
+  //            case (BinExpr(op1, l1, r1), BinExpr(op2, l2, r2))
+  //                if (op1 equals op2) && (commutative contains op1) && ((l1 == l2 && r1 == r2) || (l1 == r2 && l2 == r1)) =>
+  //                    true
+  //
+  //            case _ => super.equals(obj)
+  //        }
+  //    }
 }
 
 case class IfElseExpr(cond: Node, left: Node, right: Node) extends Node {
   override def toStr = left.toStr + " if " + cond.toStr + " else " + right.toStr
 }
+
+
+
+case class IfElifInstr(cond: Node, left: Node, elifs: List[IfInstr]) extends Node {
+  override def toStr = {
+    var str = "if " + cond.toStr + ":\n"
+    str += left.toStr.replaceAll("(?m)^", indent)
+
+    val elif_strs = (elifs map { case IfInstr(elif_cond, elif_instr) =>
+      "\nelif " + elif_cond.toStr + ":\n" + elif_instr.toStr.replaceAll("(?m)^", indent)
+    }) mkString ""
+
+    str + elif_strs
+  }
+}
+
+case class IfElifElseInstr(cond: Node, left: Node, elifs: List[IfInstr], right: Node) extends Node {
+  override def toStr = {
+    var str = "if " + cond.toStr + ":\n"
+    str += left.toStr.replaceAll("(?m)^", indent)
+
+    val elif_strs = (elifs map { case IfInstr(elif_cond, elif_instr) =>
+      "\nelif " + elif_cond.toStr + ":\n" + elif_instr.toStr.replaceAll("(?m)^", indent)
+    }) mkString ""
+
+    str + elif_strs + "\nelse:\n" + right.toStr.replaceAll("(?m)^", indent)
+  }
+}
+
+
 
 case class Assignment(left: Node, right: Node) extends Node {
   override def toStr = left.toStr + " = " + right.toStr
@@ -119,7 +139,7 @@ case class KeyDatum(key: Node, value: Node) extends Node {
   override def toStr = key.toStr + ": " + value.toStr
 }
 
-case class GetAttr(expr: Node, attr: String) extends Node {
+case class GetAttr(expr:Node, attr: String) extends Node {
   override def toStr = expr.toStr + "." + attr
 }
 
@@ -187,7 +207,7 @@ case class ClassDef(name: String, inherit_list: Node, suite: Node) extends Node 
     var inheritStr = ""
     val suiteStr = ":\n" + suite.toStr.replaceAll("(?m)^", indent)
     inherit_list match {
-      case NodeList(x) => if (x.length > 0) inheritStr = "(" + x.map(_.toStr).mkString("", ",", "") + ")"
+      case NodeList(x) => if(x.length>0) inheritStr = "(" + x.map(_.toStr).mkString("", ",", "") + ")"
       case _ =>
     }
     str + inheritStr + suiteStr
@@ -213,13 +233,9 @@ case class ElemList(list: List[Node]) extends Node {
 }
 
 case class Tuple(list: List[Node]) extends Node {
-  override def toStr = if (list.length == 0) "()"
-  else if (list.length == 1) "(" + list(0).toStr + ",)"
+  override def toStr = if(list.length==0) "()"
+  else if(list.length==1) "(" + list(0).toStr + ",)"
   else list.map(_.toStr).mkString("(", ",", ")")
-}
-
-case class Empty() extends Node {
-  override def toStr = ""
 }
 
         
