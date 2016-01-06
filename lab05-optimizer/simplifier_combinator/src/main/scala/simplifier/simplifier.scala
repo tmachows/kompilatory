@@ -1,413 +1,455 @@
 package simplifier
 
 import AST._
-
+import math.pow
 
 // to implement
 // avoid one huge match of cases
 // take into account non-greedy strategies to resolve cases with power laws
 object Simplifier {
-  var flag = false
 
-
-  def simplify(node: Node): Node = {
-    node match {
-      case n: NodeList => SimplifyNodeList(n)
-
-      case n: Tuple => SimplifyTuple(n)
-      case n: BinExpr => SimplifyBinExpr(n)
-      case n: Unary => SimplifyUnary(n)
-      case n: IfElseExpr => SimplifyIfElseExpr(n)
-      case n: Assignment => SimplifyAssignment(n)
-      case n: KeyDatum => SimplifyKeyDatum(n)
-      case n: KeyDatumList => SimplifyKeyDatumList(n)
-      case FunCall(name, arg_list) => SimplifyFunCall(name, arg_list)
-      case n: ReturnInstr => ReturnInstr(simplify(n.expr))
-      case PrintInstr(expr) => PrintInstr(simplify(expr))
-      case FunDef(name, formal_args, body) => SimplifyFunDef(name, formal_args, body)
-      case n: WhileInstr => SimplifyWhile(n)
-      case n: IfInstr => SimplifyIfInstr(n)
-      case n: IfElseInstr => SimplifyIfElseInstr(n)
-      case n: IfElifInstr => SimplifyIfElifInstr(n)
-      case n: IfElifElseInstr => SimplifyIfElifElseInstr(n)
-
-      case _ => node
-    }
-  }
-
-  def SimplifyIfElifElseInstr(n: IfElifElseInstr): IfElifElseInstr = {
-    IfElifElseInstr(simplify(n.cond), simplify(n.left), n.elifs.map({ case IfInstr(c, l) => IfInstr(simplify(c), simplify(l)) }), simplify(n.right))
-  }
-
-  def SimplifyIfElifInstr(n: IfElifInstr): IfElifInstr = {
-    IfElifInstr(simplify(n.cond), simplify(n.left), n.elifs map (_ => IfInstr(simplify(n.cond), simplify(n.left))))
-  }
-
-  def SimplifyFunDef(name: String, formal_args: Node, body: Node): FunDef = {
-    FunDef(name, simplify(formal_args), simplify(body))
-  }
-
-  def SimplifyFunCall(name: Node, arg_list: Node): FunCall = {
-    FunCall(name, simplify(arg_list))
-  }
-
-  def SimplifyKeyDatumList(n: KeyDatumList): Node = {
-    n.list map simplify
-    processDict(n)
-  }
-
-  def SimplifyKeyDatum(n: KeyDatum): KeyDatum = {
-    new KeyDatum(simplify(n.key), simplify(n.value))
-  }
-
-  def SimplifyTuple(n: Tuple): Tuple = {
-    Tuple(n.list map simplify)
-  }
-
-  def SimplifyNodeList(n: NodeList): NodeList = {
-
-    NodeList(n.list map simplify filter (_ != null)) match {
-      case NodeList(Nil) => null
-      case NodeList(List(NodeList(x))) => NodeList(x)
-      case NodeList(nodes) => NodeList(remove_dead_assignments(nodes))
-    }
-
-  }
-
-  def process_cummutative(expr: BinExpr): BinExpr = {
-    val commutative: List[String] = List("+", "*", "and", "or", "!=", "==")
-
-    def collect_nodes(expr: BinExpr, op: String): List[Node] = {
-      if(!(expr.op equals op)) return List(null)
-
-      expr match {
-        case BinExpr(_, left: BinExpr, right: BinExpr) =>
-          collect_nodes(left, op) ::: collect_nodes(right, op)
-
-        case BinExpr(_, left: Node, right: BinExpr) =>
-          left :: collect_nodes(right, op)
-
-        case BinExpr(_, left: BinExpr, right: Node) =>
-          right :: collect_nodes(left, op)
-
-        case BinExpr(_, left: Node, right: Node) =>
-          right :: left :: Nil
-      }
-    }
-
-    if(!(commutative contains expr.op)) return expr
-
-    var nodes = collect_nodes(expr, expr.op)
-    if(nodes contains null) return expr
-    nodes = nodes.sortBy(_.toStr)
-
-    nodes match {
-      case x :: y :: tail =>
-        tail.foldLeft(BinExpr(expr.op, x, y)) ((l, r) => BinExpr(expr.op, l, r))
-    }
-  }
-
-  def equals_commutative(expr1: BinExpr, expr2: BinExpr): Boolean = {
-    val commutative: List[String] = List("+", "*", "and", "or", "!=", "==")
-    if(!(commutative contains expr1.op) || !(expr1.op equals expr2.op)) return false
-
-    (expr1, expr2) match {
-      case (BinExpr(_, l1, r1), BinExpr(_, l2, r2))
-      => (l1 equals l2) && (r1 equals r2) ||
-        (l1 equals r2) && (l2 equals r1)
-
-    }
-  }
-
-  def SimplifyBinExpr(expr: BinExpr): Node = {
-
-
-    (expr.op, expr.left, expr.right) match {
-
-
-      case ("/", l: BinExpr, r: BinExpr) if equals_commutative(l, r) => IntNum(1)
-      case ("/", l: Node, r: Node) if simplify(l) equals simplify(r) => IntNum(1)
-
-      // x*1/y = 1
-      case ("*", x, BinExpr("/", IntNum(1), y)) => simplify(BinExpr("/", x, y))
-
-      // Wyrazenie numeryczne
-      case (op, _: Num, _: Num) =>
-        (op, expr.left, expr.right) match {
-          case ("+", l: FloatNum, r: FloatNum) => FloatNum(l.value + r.value)
-          case ("+", l: FloatNum, r: IntNum) => FloatNum(l.value + r.value)
-          case ("+", l: IntNum, r: FloatNum) => FloatNum(l.value + r.value)
-          case ("+", l: IntNum, r: IntNum) => IntNum(l.value + r.value)
-
-          case ("**", l: FloatNum, r: FloatNum) => FloatNum(math.pow(l.value, r.value))
-          case ("**", l: FloatNum, r: IntNum) => FloatNum(math.pow(l.value, r.value * 1.0))
-          case ("**", l: IntNum, r: FloatNum) => FloatNum(math.pow(l.value * 1.0, r.value))
-          case ("**", l: IntNum, r: IntNum) => IntNum(math.pow(l.value * 1.0, r.value * 1.0).toInt)
-
-          case ("-", l: FloatNum, r: FloatNum) => FloatNum(l.value - r.value)
-          case ("-", l: FloatNum, r: IntNum) => FloatNum(l.value - r.value)
-          case ("-", l: IntNum, r: FloatNum) => FloatNum(l.value - r.value)
-          case ("-", l: IntNum, r: IntNum) => IntNum(l.value - r.value)
-
-          case ("*", l: FloatNum, r: FloatNum) => FloatNum(l.value * r.value)
-          case ("*", l: FloatNum, r: IntNum) => FloatNum(l.value * r.value)
-          case ("*", l: IntNum, r: FloatNum) => FloatNum(l.value * r.value)
-          case ("*", l: IntNum, r: IntNum) => IntNum(l.value * r.value)
-
-          case ("/", l: FloatNum, r: FloatNum) => FloatNum(l.value / r.value)
-          case ("/", l: FloatNum, r: IntNum) => FloatNum(l.value / r.value)
-          case ("/", l: IntNum, r: FloatNum) => FloatNum(l.value / r.value)
-          case ("/", l: IntNum, r: IntNum) => IntNum(l.value / r.value)
-
-          case ("%", l: IntNum, r: IntNum) => IntNum(l.value % r.value)
-
-          case _ => expr
-        }
-
-      // Przy dodawaniu i mnozeniu zawsze daje (liczba */+ zmienna)
-      case (op, l: Node, r: Num) =>
-        (op, l, r) match {
-          case ("+", node, FloatNum(0.0)) => simplify(node)
-          case ("+", node, IntNum(0)) => simplify(node)
-          case ("+", node, num) => BinExpr(op, num, simplify(node))
-
-          case ("-", node, FloatNum(0.0)) => simplify(node)
-          case ("-", node, IntNum(0)) => simplify(node)
-          case ("-", node, num) => BinExpr(op, simplify(node), num)
-
-          case ("/", node, IntNum(1)) => simplify(node)
-          case ("/", node, FloatNum(1.0)) => simplify(node)
-          case ("/", node, num) => BinExpr(op, simplify(node), num)
-
-          case ("*", node, IntNum(1)) => simplify(node)
-          case ("*", node, IntNum(0)) => IntNum(0)
-          case ("*", node, FloatNum(1.0)) => simplify(node)
-          case ("*", node, FloatNum(0.0)) => FloatNum(0.0)
-          case ("*", node, num) => BinExpr(op, num, simplify(node))
-
-          case ("**", node, FloatNum(1.0)) => simplify(node)
-          case ("**", node, FloatNum(0.0)) => FloatNum(1.0)
-          case ("**", node, IntNum(1)) => simplify(node)
-          case ("**", node, IntNum(0)) => IntNum(1)
-          case ("**", BinExpr("+", x, y),IntNum(2)) => simplify(BinExpr("+",BinExpr("+",BinExpr("**", x, IntNum(2)),BinExpr("*",BinExpr("*",IntNum(2),x),y)),BinExpr("**", y, IntNum(2))))
-          case ("**", _, _) => BinExpr(op, simplify(l), r)
-
-          case ("==", node, num) => BinExpr(op, node, num)
-          case ("!=", node, num) => BinExpr(op, node, num)
-          case (">=", node, num) => BinExpr(op, node, num)
-          case ("<=", node, num) => BinExpr(op, node, num)
-          case (">", node, num) => BinExpr(op, node, num)
-          case ("<", node, num) => BinExpr(op, node, num)
-
-          case _ => simplify(BinExpr(op, simplify(l), r))
-        }
-
-      // Przy dodawaniu i mnozeniu zawsze daje (liczba */+ zmienna)
-      case (op, l: Num, r: Node) =>
-        (op, l, r) match {
-          case ("+", FloatNum(0.0), node) => simplify(node)
-          case ("+", IntNum(0), node) => simplify(node)
-          case ("+", num, node) => simplify(BinExpr(op, num, simplify(node)))
-
-          case ("-", FloatNum(0.0), node) => Unary("-", simplify(node))
-          case ("-", IntNum(0), node) => Unary("-", simplify(node))
-          case ("-", num, node) => simplify(BinExpr(op, num, simplify(node)))
-
-          case ("/", IntNum(1), BinExpr("/", IntNum(1), x)) => simplify(x)
-          case ("/", IntNum(1), node) => simplify(node)
-          case ("/", FloatNum(1.0), node) => simplify(node)
-          case ("/", num, node) => BinExpr(op, num, simplify(node))
-
-
-          case ("*", IntNum(1), node) => node
-          case ("*", IntNum(0), node) => IntNum(0)
-          case ("*", FloatNum(1.0), node) => node
-          case ("*", FloatNum(0.0), node) => FloatNum(0.0)
-          case ("*", num, node) => simplify(BinExpr(op, num, simplify(node)))
-
-          case ("**", FloatNum(1.0), node) => FloatNum(1.0)
-          case ("**", FloatNum(0.0), node) => FloatNum(0.0)
-          case ("**", IntNum(1), node) => IntNum(1)
-          case ("**", IntNum(0), node) => IntNum(0)
-          case ("**", num, node) => simplify(BinExpr(op, num, simplify(node)))
-
-          case ("==", num, node) => BinExpr(op, num, node)
-          case ("!=", num, node) => BinExpr(op, num, node)
-          case (">=", num, node) => BinExpr(op, num, node)
-          case ("<=", num, node) => BinExpr(op, num, node)
-          case (">", num, node) => BinExpr(op, num, node)
-          case ("<", num, node) => BinExpr(op, num, node)
-
-          case _ => simplify(BinExpr(op, l, simplify(r)))
-        }
-
-      // A-A = 0
-      case ("-", x, y) if x equals y => IntNum(0)
-
-      // operacje binarne
-      case ("and", x: Node, _: TrueConst) => x
-      case ("and", _: TrueConst, x: Node) => x
-      case ("and", x: Node, _: FalseConst) => new FalseConst
-      case ("and", _: FalseConst, x: Node) => new FalseConst
-
-      case ("or", _: Node, _: TrueConst) => new TrueConst
-      case ("or", _: TrueConst, _: Node) => new TrueConst
-
-      case ("or", _: FalseConst, x: Node) => x
-      case ("or", x: Node, _: FalseConst) => x
-
-      case ("and", x: Node, y: Node) if x equals y => x
-      case ("or", x: Node, y: Node) if x equals y => x
-
-      case (">", l: Variable, r: Variable) if l.name equals r.name => new FalseConst
-      case ("<", l: Variable, r: Variable) if l.name equals r.name => new FalseConst
-      case ("<=", l: Variable, r: Variable) if l.name equals r.name => new TrueConst
-      case (">=", l: Variable, r: Variable) if l.name equals r.name => new TrueConst
-      case ("==", l: Variable, r: Variable) if l.name equals r.name => new TrueConst
-      case ("!=", l: Variable, r: Variable) if l.name equals r.name => new FalseConst
-
-      // -x+y = y-x, y+-x=y-x
-      case ("+", Unary("-", x), y) => simplify(BinExpr("-", y, x))
-      case ("+", y, Unary("-", x)) => simplify(BinExpr("-", y, x))
-
-      // upraszczanie map, list
-      case ("+", ElemList(l), ElemList(r)) => ElemList((l map simplify) ::: (r map simplify))
-      case ("+", Tuple(l), Tuple(r)) => Tuple((l map simplify) ::: (r map simplify))
-
-      // x*y+z*y = y*(x+z)
-      case ("+",BinExpr("*", x1, y1),BinExpr("*", x2, y2)) if y1 equals y2 => simplify(BinExpr("*",y1, BinExpr("+", x2, x1)))
-      case ("-",BinExpr("*", x1, y1),BinExpr("*", x2, y2)) if y1 equals y2 => simplify(BinExpr("*",y1, BinExpr("+", x2, x1)))
-
-      // x*y+x*z = x*(y+z)
-      case ("+",BinExpr("*", x1, y1),BinExpr("*", x2, y2)) if x1 equals x2 => simplify(BinExpr("*",x1, BinExpr("+", y2, y1)))
-      case ("-",BinExpr("*", x1, y1),BinExpr("*", x2, y2)) if x1 equals x2 => simplify(BinExpr("*",x1, BinExpr("+", y2, y1)))
-
-      // 2*x + 3x = 5x
-      case ("+", BinExpr("*", a1, b), BinExpr("*", a2, c)) if a1 equals a2 => simplify(BinExpr("*", a1, simplify(BinExpr("+", b, c))))
-      case ("-", BinExpr("*", a1, b), BinExpr("*", a2, c)) if a1 equals a2 => simplify(BinExpr("-", a1, simplify(BinExpr("+", b, c))))
-      case ("+", BinExpr("*", b, a1), BinExpr("*", a2, c)) if a1 equals a2 => simplify(BinExpr("*", a1, simplify(BinExpr("+", b, c))))
-      case ("-", BinExpr("*", b, a1), BinExpr("*", a2, c)) if a1 equals a2 => simplify(BinExpr("-", a1, simplify(BinExpr("+", b, c))))
-      // 2*x + x = 3*x
-      case ("+", BinExpr("*", a1, b), a2) if a1 equals a2 => simplify(BinExpr("*", a1, simplify(BinExpr("+", b, IntNum(1)))))
-      case ("-", BinExpr("*", a1, b), a2) if a1 equals a2 => simplify(BinExpr("*", a1, simplify(BinExpr("-", b, IntNum(1)))))
-      case ("-", BinExpr("*", b, a1), a2) if a1 equals a2 => simplify(BinExpr("*", a1, simplify(BinExpr("-", b, IntNum(1)))))
-      case ("+", a2, BinExpr("*", a1, b)) if a1 equals a2 => simplify(BinExpr("*", a1, simplify(BinExpr("+", b, IntNum(1)))))
-      case ("-", a2, BinExpr("*", a1, b)) if a1 equals a2 => simplify(BinExpr("*", a1, simplify(BinExpr("-", b, IntNum(1)))))
-      case ("-", BinExpr("*", a1, b), a2) if a1 equals a2 => simplify(BinExpr("*", a1, BinExpr("-", b, IntNum(1))))
-      case ("-", a2, BinExpr("*", a1, b)) if a1 equals a2 => simplify(BinExpr("*", a1, BinExpr("-", b, IntNum(1))))
-
-      // x + 2*x = 3*x
-      case ("+", a1, BinExpr("*", a2, b)) if a1 equals a2 => simplify(BinExpr("*", a1, BinExpr("+", IntNum(1), b)))
-      case ("-", a1, BinExpr("*", a2, b)) if a1 equals a2 => simplify(BinExpr("*", a1, BinExpr("-", IntNum(1), b)))
-      case ("+", a1, BinExpr("*", b, a2)) if a1 equals a2 => simplify(BinExpr("*", a1, BinExpr("+", IntNum(1), b)))
-      case ("-", a1, BinExpr("*", b, a2)) if a1 equals a2 => simplify(BinExpr("*", a1, BinExpr("-", IntNum(1), b)))
-
-      // x*y+x*z+v*y+v*z = (x+v)*(y+z)
-      case ("+", BinExpr("+", BinExpr("+", BinExpr("*", x1 ,y1), BinExpr("*", x2, z1)), BinExpr("*", v1, y2)), BinExpr("*", v2, z2))
-        if (x1 equals x2) && (y1 equals y2) && (v1 equals v2) =>
-        simplify(BinExpr("*", BinExpr("+", x1, v1), BinExpr("+", y1, z1)))
-
-      case ("*", BinExpr("**", a1, b), BinExpr("**", a2, c)) if a1 equals a2 => simplify(BinExpr("**", a1, BinExpr("+", b, c)))
-      case ("**", BinExpr("**", a, b), c) => simplify(BinExpr("**", a, BinExpr("*", b, c)))
-
-      case ("+", BinExpr("+", BinExpr("**", x1, IntNum(2)), BinExpr("*", BinExpr("*", IntNum(2), x2), y2)), BinExpr("**", y1, IntNum(2)))
-        if (x1 equals x2) && (y1 equals y2) =>
-        simplify(BinExpr("**", BinExpr("+", x1, y1), IntNum(2)))
-
-
-      case (op, l: BinExpr, r: BinExpr) => {
-        (simplify(l), simplify(r)) match {
-          case (l_simple, r_simple) if (l_simple equals l) && (r_simple equals r) => BinExpr(op, l_simple, r_simple)
-          case (l_simple, r_simple) => simplify(BinExpr(op, simplify(l), simplify(r)))
-        }
+  def simplify(node: Node): Node = node match {
+    // na samym poczatku musza byc patterny najbardziej szczegolowe, zeby te bardziej ogolne ich
+    // nie "zjadly" :)
+
+    // konkatenacja tupli i list na samym poczatku (albowiem j.w.):
+    case BinExpr("+", Tuple(l1), Tuple(l2)) => Tuple((l1 ++ l2) map simplify)
+    case BinExpr("+", ElemList(l1), ElemList(l2)) => ElemList((l1 ++ l2) map simplify)
+
+    // usuwanie duplikatow ze slownikow:
+    case KeyDatumList(list) => KeyDatumList(list.foldLeft(Map.empty[Node, KeyDatum])(
+      (_map, kd) => _map + (kd.key -> kd)
+    ).toList.map(p => p._2))
+
+    // usuwanie petli z falszywym warunkiem:
+    case WhileInstr(cond, body) =>
+      val sCond = simplify(cond)
+      sCond match {
+        case FalseConst() => EmptyInstr()
+        case _            => WhileInstr(sCond, simplify(body))
       }
 
+    case IfElseInstr(cond, left, right) =>
+      val sCond = simplify(cond)
+      sCond match {
+        case TrueConst()  => simplify(left)
+        case FalseConst() => simplify(right)
+        case _            => IfElseInstr(sCond, simplify(left), simplify(right))
+      }
 
-      // default
-      case _ => expr //TODO inne rodzaje BinaryExpression do zaimplementowania
+    case IfInstr(cond, left) =>
+      val sCond = simplify(cond)
+      sCond match {
+        case TrueConst()  => simplify(left)
+        case FalseConst() => EmptyInstr()
+        case _            => IfInstr(sCond, simplify(left))
+      }
+
+    case IfElseExpr(cond, left, right) =>
+      val sCond = simplify(cond)
+      sCond match {
+        case TrueConst()  => simplify(left)
+        case FalseConst() => simplify(right)
+        case _            => IfElseExpr(sCond, simplify(left), simplify(right))
+      }
+
+    case Assignment(Variable(x), expr) => expr match {
+      case Variable(y) if x == y => EmptyInstr()
+      case _                     => Assignment(Variable(x), simplify(expr))
     }
+
+    // <ewaluacja wyrazen> -------------------------------------------------------------------------------
+    // ewaluacja jest taka dluga, jesli chcemy pozwolic na domyslne casty intow na floaty w wyrazeniach
+    // nie ma wiele lepszego sposobu na zrobienie tego krocej (tzn. jest, ale trzeba troche podrasowac AST i uzyc
+    // ruskich trickow. Ain't nobody got time for that :)
+
+    case BinExpr(op, IntNum(x), IntNum(y)) =>
+      op match {
+        case "+" => IntNum(x + y)
+        case "-" => IntNum(x - y)
+        case "*" => IntNum(x * y)
+        case "/" => IntNum(x / y)
+        case "%" => IntNum(x % y)
+        case "**" => IntNum(pow(x.toDouble, y.toDouble).toInt)
+
+        case "==" => if (x == y) TrueConst() else FalseConst()
+        case "!=" => if (x != y) TrueConst() else FalseConst()
+        case ">=" => if (x >= y) TrueConst() else FalseConst()
+        case "<=" => if (x <= y) TrueConst() else FalseConst()
+        case ">" => if (x > y)   TrueConst() else FalseConst()
+        case "<" => if (x < y)   TrueConst() else FalseConst()
+      }
+
+    case BinExpr(op, FloatNum(x), FloatNum(y)) =>
+      op match {
+        case "+"  => FloatNum(x + y)
+        case "-"  => FloatNum(x - y)
+        case "*"  => FloatNum(x * y)
+        case "/"  => FloatNum(x / y)
+        case "%"  => FloatNum(x % y)
+        case "**" => FloatNum(pow(x, y))
+
+        case "==" => if (x == y) TrueConst() else FalseConst()
+        case "!=" => if (x != y) TrueConst() else FalseConst()
+        case ">=" => if (x >= y) TrueConst() else FalseConst()
+        case "<=" => if (x <= y) TrueConst() else FalseConst()
+        case ">"  => if (x > y)  TrueConst() else FalseConst()
+        case "<"  => if (x < y)  TrueConst() else FalseConst()
+      }
+
+    case BinExpr(op, IntNum(x), FloatNum(y)) =>
+      op match {
+        case "+"  => FloatNum(x + y)
+        case "-"  => FloatNum(x - y)
+        case "*"  => FloatNum(x * y)
+        case "/"  => FloatNum(x / y)
+        case "%"  => FloatNum(x % y)
+        case "**" => FloatNum(pow(x.toDouble, y))
+
+        case "==" => if (x == y) TrueConst() else FalseConst()
+        case "!=" => if (x != y) TrueConst() else FalseConst()
+        case ">=" => if (x >= y) TrueConst() else FalseConst()
+        case "<=" => if (x <= y) TrueConst() else FalseConst()
+        case ">"  => if (x > y)  TrueConst() else FalseConst()
+        case "<"  => if (x < y)  TrueConst() else FalseConst()
+      }
+
+    case BinExpr(op, FloatNum(x), IntNum(y)) =>
+      op match {
+        case "+"  => FloatNum(x + y)
+        case "-"  => FloatNum(x - y)
+        case "*"  => FloatNum(x * y)
+        case "/"  => FloatNum(x / y)
+        case "%"  => FloatNum(x % y)
+        case "**" => FloatNum(pow(x, y.toDouble))
+
+        case "==" => if (x == y) TrueConst() else FalseConst()
+        case "!=" => if (x != y) TrueConst() else FalseConst()
+        case ">=" => if (x >= y) TrueConst() else FalseConst()
+        case "<=" => if (x <= y) TrueConst() else FalseConst()
+        case ">"  => if (x > y)  TrueConst() else FalseConst()
+        case "<"  => if (x < y)  TrueConst() else FalseConst()
+      }
+
+    case BinExpr("==", x, y) if x == y => TrueConst()
+    case BinExpr(">=", x,y)  if x == y => TrueConst()
+    case BinExpr("<=", x,y)  if x == y => TrueConst()
+    case BinExpr("!=", x,y)  if x == y => FalseConst()
+    case BinExpr("<", x,y)   if x == y => FalseConst()
+    case BinExpr(">", x,y)   if x == y => FalseConst()
+    case BinExpr("or", x ,y) if x == y => x
+    case BinExpr("and", x,y) if x == y => x
+
+    // </ewaluacja wyrazen> --------------------------------------------------------------------------
+
+    // <upraszczanie wyrazen unarnych> --------------------------------------------------------------
+    case Unary("not", expr) => expr match {
+      case BinExpr("==", left, right) => simplify(BinExpr("!=", left, right))
+      case BinExpr("!=", left, right) => simplify(BinExpr("==", left, right))
+      case BinExpr("<=", left, right) => simplify(BinExpr(">",  left, right))
+      case BinExpr(">=", left, right) => simplify(BinExpr("<",  left, right))
+      case BinExpr("<", left, right)  => simplify(BinExpr(">=", left, right))
+      case BinExpr(">", left, right)  => simplify(BinExpr("<=", left, right))
+
+      case TrueConst()                => FalseConst()
+      case FalseConst()               => TrueConst()
+
+      case Unary("not", expr2)        => simplify(expr2) // double negation
+
+      case expr2                      => Unary("not", simplify(expr2))
+    }
+
+
+    case Unary("-", expr) => expr match {
+      case Unary("-", expr2) => simplify(expr2)
+      // tutaj jeszcze tak naprawde czesc ewaluacji, ale juz zeby nie bylo az takiej redundancji tych kejsow...
+      case IntNum(x)         => IntNum(-x)
+      case FloatNum(x)       => FloatNum(-x)
+      case expr2             => Unary("-", simplify(expr2))
+    }
+
+    // </upraszczanie wyrazen unarnych> --------------------------------------------------------------
+
+    // <upraszczanie wyrazen binarnych typu x + 0> --------------------------------------------------------------
+    // balansowanie drzew:
+    case (BinExpr("+", BinExpr("+", BinExpr("+", BinExpr("*", x1, y1), BinExpr("*", x2, y2)), BinExpr("*", x3, y3)), BinExpr("*", x4, y4)))
+      => simplify(BinExpr("+", BinExpr("+", BinExpr("*", x1, y1), BinExpr("*", x2, y2)), BinExpr("+", BinExpr("*", x3, y3), BinExpr("*", x4, y4))))
+
+
+    case BinExpr("-", left, right)    => (simplify(left), simplify(right)) match {
+      case (exprL, exprR) if exprL == exprR => IntNum(0)
+      case (expr, IntNum(n)) if n == 0  => expr
+      case (IntNum(n), expr) if n == 0  => simplify(Unary("-", expr))
+      case (expr, FloatNum(n)) if n == 0 => expr
+      case (FloatNum(n), expr) if n == 0 => simplify(Unary("-", expr))
+
+      // distributive properties of "*":
+      case (BinExpr("*", l, r), expr) if expr == l => simplify(BinExpr("*", BinExpr("-", r, IntNum(1)), l))
+      case (BinExpr("*", l, r), expr) if expr == r => simplify(BinExpr("*", BinExpr("-", l, IntNum(1)), r))
+
+      case (e1@BinExpr("*", l1, r1), e2@BinExpr("*", l2, r2)) =>
+        if (l1 == l2) BinExpr("*", BinExpr("+", r1, r2), l1)
+        else if (r1 == r2) BinExpr("*", BinExpr("-", l1, l2), r1)
+        else if (l1 == r2) BinExpr("*", BinExpr("-", r1, l2), l1)
+        else if (r1 == l2) BinExpr("*", BinExpr("-", l1, r2), r1)
+        else {
+          val s1 = simplify(e1)
+          val s2 = simplify(e2)
+          if (s1 != e1 || s2 != e2) simplify(BinExpr("-", s1, s2)) else BinExpr("-", s1, s2)
+        }
+
+      // distributive properties of "/":
+      case (e1@BinExpr("/", l1, r1), e2@BinExpr("/", l2, r2)) =>
+        if (r1 == r2) BinExpr("/", BinExpr("-", l1, l2), r1)
+        else {
+          val s1 = simplify(e1)
+          val s2 = simplify(e2)
+          if (s1 != e1 || s2 != e2) simplify(BinExpr("-", s1, s2)) else BinExpr("-", s1, s2)
+        }
+
+      // wzory skr. mnozenia:
+      case (e1@BinExpr("**", BinExpr(op1, x1, y1), IntNum(a)), e2@BinExpr("**", BinExpr(op2, x2, y2), IntNum(b)))
+        if x1 == x2 && y1 == y2 && a == 2 && b == 2 =>
+          if (op1 == "+" && op2 == "-") BinExpr("*", BinExpr("*", x1, IntNum(4)), y1)
+          else if (op1 == "-" && op2 == "+") Unary("-", BinExpr("*", BinExpr("*", x1, IntNum(4)), y1))
+          else BinExpr("-", simplify(e1), simplify(e2))
+
+      case (BinExpr("-", BinExpr("**", BinExpr("+", x1, y1), IntNum(a)), BinExpr("**", x2, IntNum(b))), BinExpr("*", BinExpr("*", x3, IntNum(c)), y3))
+        if a == 2 && b == 2 && c == 2 && x1 == x2 && ((x1 == x3 && y1 == y3) || (x1 == y3 && y1 == x3)) =>
+          simplify(BinExpr("**", y1, IntNum(2)))
+      case (BinExpr("-", BinExpr("**", BinExpr("+", x1, y1), IntNum(a)), BinExpr("**", x2, IntNum(b))), BinExpr("*", BinExpr("*", x3, IntNum(c)), y3))
+        if a == 2 && b == 2 && c == 2 && y1 == x2 && ((x1 == x3 && y1 == y3) || (x1 == y3 && y1 == x3)) =>
+        BinExpr("**", x1, IntNum(2))
+
+      // commutative properties:
+      case (e@BinExpr("+", exprL, exprR), expr) =>
+        if (exprL == expr) simplify(exprR)
+        else if (exprR == expr) simplify(exprL)
+        else BinExpr("-", simplify(e), simplify(expr))
+      case (expr, e@BinExpr("+", exprL, exprR)) =>
+        if (exprL == expr) simplify(Unary("-", exprR))
+        else if (exprR == expr) simplify(Unary("-", exprL))
+        else BinExpr("-", simplify(expr), simplify(e))
+
+      case (exprL, exprR)      =>
+        val sL = simplify(exprL)
+        val sR = simplify(exprR)
+        if (sL != exprL || sR != exprR) simplify(BinExpr("-", sL, sR)) else BinExpr("-", sL, sR)
+    }
+
+    case BinExpr("+", left, right)    => (simplify(left), simplify(right)) match {
+      case (expr, IntNum(n)) if n == 0  => expr
+      case (IntNum(n), expr) if n == 0  => expr
+      case (expr, FloatNum(n)) if n == 0 => expr
+      case (FloatNum(n), expr) if n == 0 => expr
+      case (Unary("-", exprU), expr) => simplify(BinExpr("-", expr, exprU))
+      case (expr, Unary("-", exprU)) => simplify(BinExpr("-", expr, exprU))
+
+      // balansowanie drzewa, w razie czego:
+//      case (BinExpr("+",
+//              BinExpr("+",
+//                 BinExpr("*", x1, y1),
+//                 BinExpr("*", x2, y2)),
+//              BinExpr("*", x3, y3)),
+//            BinExpr("*", x4, y4)) =>
+//
+//          simplify(BinExpr("+",
+//            simplify(BinExpr("+",
+//              simplify(BinExpr("*", x1, y1)),
+//              simplify(BinExpr("*", x2, y2)))),
+//            simplify(BinExpr("+",
+//              simplify(BinExpr("*", x2, y3)),
+//              simplify(BinExpr("*", x4, y4)))))
+//          )
+      // distributive properties of "*":
+      case (BinExpr("*", l, r), expr) if expr == l => simplify(BinExpr("*", BinExpr("+", r, IntNum(1)), l))
+      case (BinExpr("*", l, r), expr) if expr == r => simplify(BinExpr("*", BinExpr("+", l, IntNum(1)), r))
+
+      // wzory sk. mnozenia:
+      case (BinExpr("+", BinExpr("**", x1, IntNum(a)), BinExpr("*", BinExpr("*", x2, IntNum(b)), y2)), BinExpr("**", y3, IntNum(c)))
+        if a == 2 && b == 2 && c == 2 && (x1 == x2 && y2 == y3) =>
+          simplify(BinExpr("**", BinExpr("+", x1, y2), IntNum(2)))
+      case (BinExpr("+", BinExpr("**", x1, IntNum(a)), BinExpr("*", BinExpr("*", x2, IntNum(b)), y2)), BinExpr("**", y3, IntNum(c)))
+        if a == 2 && b == 2 && c == 2 && (x1 == y2 && x2 == y3) =>
+          simplify(BinExpr("**", BinExpr("+", x1, y3), IntNum(2)))
+
+
+
+
+      case (e1@BinExpr("*", l1, r1), e2@BinExpr("*", l2, r2)) =>
+        if (l1 == l2) BinExpr("*", BinExpr("+", r1, r2), l1)
+        else if (r1 == r2) BinExpr("*", BinExpr("+", l1, l2), r1)
+        else if (l1 == r2) BinExpr("*", BinExpr("+", r1, l2), l1)
+        else if (r1 == l2) BinExpr("*", BinExpr("+", l1, r2), r1)
+        else {
+          val s1 = simplify(e1)
+          val s2 = simplify(e2)
+          if (s1 != e1 || s2 != e2) simplify(BinExpr("+", s1, s2)) else BinExpr("+", s1, s2)
+        }
+
+      // distributive properties of "/":
+      case (e1@BinExpr("/", l1, r1), e2@BinExpr("/", l2, r2)) =>
+        if (r1 == r2) BinExpr("/", BinExpr("+", l1, l2), r1)
+        else {
+          val s1 = simplify(e1)
+          val s2 = simplify(e2)
+          if (s1 != e1 || s2 != e2) simplify(BinExpr("+", s1, s2)) else BinExpr("+", s1, s2)
+        }
+
+      // commutative properties:
+      case (e@BinExpr("-", exprL, exprR), expr) =>
+        if (exprR == expr) simplify(exprL)
+        else BinExpr("+", simplify(e), simplify(expr))
+      case (expr, e@BinExpr("-", exprL, exprR)) =>
+        if (exprR == expr) simplify(exprL)
+        else BinExpr("+", simplify(expr), simplify(e))
+
+      case (exprL, exprR)      =>
+        val sL = simplify(exprL)
+        val sR = simplify(exprR)
+        if (sL != exprL || sR != exprR) simplify(BinExpr("+", sL, sR)) else BinExpr("+", sL, sR)
+    }
+
+    case BinExpr("*", left, right)    => (left, right) match {
+      case (expr, IntNum(n))   => if (n == 1) simplify(expr) else if (n == 0) IntNum(0) else {
+        val s = simplify(expr)
+        if (s != expr) simplify(BinExpr("*", s, IntNum(n))) else BinExpr("*", s, IntNum(n))
+      }
+      case (IntNum(n), expr)   => if (n == 1) simplify(expr) else if (n == 0) IntNum(0)   else {
+        val s = simplify(expr)
+        if (s != expr) simplify(BinExpr("*", s, IntNum(n))) else BinExpr("*", s, IntNum(n))
+      }
+      case (expr, FloatNum(n)) => if (n == 1) simplify(expr) else if (n == 0) FloatNum(0) else {
+        val s = simplify(expr)
+        if (s != expr) simplify(BinExpr("*", s, FloatNum(n))) else BinExpr("*", s, FloatNum(n))
+      }
+      case (FloatNum(n), expr) => if (n == 1) simplify(expr) else if (n == 0) FloatNum(0) else {
+        val s = simplify(expr)
+        if (s != expr) simplify(BinExpr("*", s, FloatNum(n))) else BinExpr("*", s, FloatNum(n))
+      }
+
+      // power laws:
+      case (BinExpr("**", leftL, rightL), BinExpr("**", leftR, rightR)) if leftL == leftR =>
+        simplify(BinExpr("**", leftL, BinExpr("+", rightL, rightR))) // TODO: czy potrzebny wewnetrzny simplify?
+
+      case (expr, BinExpr("/", exprNum, exprDenom)) => simplify(BinExpr("/", BinExpr("*", expr, exprNum), exprDenom))
+      case (BinExpr("/", exprNum, exprDenom), expr) => simplify(BinExpr("/", BinExpr("*", expr, exprNum), exprDenom))
+      case (exprL, exprR)      =>
+        val sL = simplify(exprL)
+        val sR = simplify(exprR)
+        if (sL != exprL || sR != exprR) simplify(BinExpr("*", sL, sR)) else BinExpr("*", sL, sR)
+    }
+
+    case BinExpr("/", left, right) => (left, right) match {
+      case (exprL, exprR) if exprL == exprR => IntNum(1)
+      // nazwy ponizej moga nie byc najbardziej czytelne, ale to raczej przez specyfike problemu :)
+      case (exprNum, BinExpr("/", denomNum, denomDenom)) =>
+        val sNum = simplify(exprNum)
+        val sDenomNum = simplify(denomNum)
+        val sDenomDenom = simplify(denomDenom)
+        sNum match {
+          case BinExpr("/", sNumNum, sNumDenom) =>
+            simplify(BinExpr("/", BinExpr("*", sNumNum, sDenomDenom), BinExpr("*", sNumDenom, sDenomNum)))
+          case expr => simplify(BinExpr("/", BinExpr("*", expr, sDenomDenom), sDenomNum))
+        }
+
+      // power laws:
+      case (BinExpr("**", leftL, rightL), BinExpr("**", leftR, rightR)) if leftL == leftR =>
+        simplify(BinExpr("**", leftL, BinExpr("-", rightL, rightR))) // TODO: czy potrzebny wewnetrzny simplify?
+
+      case (expr, IntNum(n))   if n == 1 => simplify(expr)
+      case (expr, FloatNum(n)) if n == 1 => simplify(expr)
+      case (exprL, exprR) =>
+        val sL = simplify(exprL)
+        val sR = simplify(exprR)
+        if (sL != exprL || sR != exprR) simplify(BinExpr("/", sL, sR)) else BinExpr("/", sL, sR)
+    }
+
+    case BinExpr("**", left, right)    => (simplify(left), simplify(right)) match {
+      case (expr, IntNum(n))   => if (n == 1) simplify(expr) else if (n == 0) IntNum(1) else {
+        val s = simplify(expr)
+        if (s != expr) simplify(BinExpr("**", s, IntNum(n))) else BinExpr("**", s, IntNum(n))
+      }
+      case (IntNum(n), expr)   => if (n == 1) simplify(expr) else if (n == 0) IntNum(1)   else {
+        val s = simplify(expr)
+        if (s != expr) simplify(BinExpr("**", s, IntNum(n))) else BinExpr("**", s, IntNum(n))
+      }
+      case (expr, FloatNum(n)) => if (n == 1) simplify(expr) else if (n == 0) FloatNum(1) else {
+        val s = simplify(expr)
+        if (s != expr) simplify(BinExpr("**", s, FloatNum(n))) else BinExpr("**", s, FloatNum(n))
+      }
+      case (FloatNum(n), expr) => if (n == 1) simplify(expr) else if (n == 0) FloatNum(1) else {
+        val s = simplify(expr)
+        if (s != expr) simplify(BinExpr("**", s, FloatNum(n))) else BinExpr("**", s, FloatNum(n))
+      }
+
+      // power laws:
+      //case (BinExpr("**", IntNum(x), IntNum(y)), expr) => simplify(BinExpr("**", IntNum(x), BinExpr("**", IntNum(y), expr))) // dla testow tylko
+      case (BinExpr("**", l, r), expr) => simplify(BinExpr("**", l, BinExpr("*", r, expr))) // to powinno byc, tego powyzej -- nie
+
+      case (exprL, exprR)      =>
+        val sL = simplify(exprL)
+        val sR = simplify(exprR)
+        if (sL != exprL || sR != exprR) simplify(BinExpr("**", sL, sR)) else BinExpr("**", sL, sR)
+    }
+
+    case BinExpr("and", left, right) =>
+      val sLeft = simplify(left)
+      val sRight = simplify(right)
+      (sLeft, sRight) match {
+        case (_, FalseConst()) => FalseConst()
+        case (FalseConst(), _) => FalseConst()
+        case (expr, TrueConst()) => expr
+        case (TrueConst(), expr) => expr
+        case (exprL, exprR) if exprL == exprR => exprL
+        case (exprL, exprR) =>
+          if (exprL != left || exprR != right) simplify(BinExpr("and", exprL, exprR))
+          else BinExpr("and", exprL, exprR)
+      }
+
+    case BinExpr("or", left, right) =>
+      val sLeft = simplify(left)
+      val sRight = simplify(right)
+      (sLeft, sRight) match {
+        case (_, TrueConst()) => TrueConst()
+        case (TrueConst(), _) => TrueConst()
+        case (expr, FalseConst()) => expr
+        case (FalseConst(), expr) => expr
+        case (exprL, exprR) if exprL == exprR => exprL
+        case (exprL, exprR) =>
+          if (exprL != left || exprR != right) simplify(BinExpr("or", exprL, exprR))
+          else BinExpr("or", exprL, exprR)
+      }
+
+    // </upraszczanie wyrazen binarnych typu x + 0> --------------------------------------------------------------
+
+    // jesli mamy liste node'ow, to upraszczamy kazdy element z osobna:
+    case NodeList(list) => list match {
+      case Nil => EmptyInstr()
+      case (nl::Nil) => nl match {
+        case EmptyInstr() => EmptyInstr()
+        case NodeList(l)  => simplify(NodeList(l map simplify)) // zostawiamy tylko jeden layer node listow
+        case n            =>
+          val sN = simplify(n)
+          if (sN != n) simplify(NodeList(List(simplify(n)))) else NodeList(List(sN))
+      }
+      case _   =>
+        val sList = (list map simplify).foldRight(List.empty[Node])(
+          (n: Node, list2: List[Node]) => list2 match {
+            case Nil   => List(n)
+            case x::xs => (n, x) match {
+              case (Assignment(lvalN, rvalN), Assignment(lvalX, rvalX)) =>
+                if (lvalN == lvalX) x::xs else n::x::xs
+              case _ => x::xs
+            }
+          }
+        ).reverse
+
+        val change = (list.length != sList.length) && ((list zip sList) exists (p => p._1 != p._2))
+        if (change) simplify(NodeList(sList)) else NodeList(sList)
+    }
+    // w pozostalych przypadkach nie da sie juz nic uproscic:
+    case n => n
   }
 
-  def processDict(dict: KeyDatumList): Node = {
-    val elems = scala.collection.mutable.Map[Node, Node]()
-    for (key_val <- dict.list) {
-      elems.put(key_val.key, key_val.value)
-    }
-    KeyDatumList((for ((key, value) <- elems) yield KeyDatum(key, value)).toList)
-  }
-
-  def SimplifyAssignment(assignment: Assignment): Node = {
-    assignment match {
-      case Assignment(left, right) if left.toStr == right.toStr => null
-      case Assignment(left, right) => new Assignment(assignment.left, simplify(assignment.right))
-    }
-  }
-
-  def SimplifyUnary(unary: Unary): Node = {
-    (unary.op, unary.expr) match {
-      case ("not", BinExpr("==", Variable(x), Variable(y))) => BinExpr("!=", Variable(x), Variable(y))
-      case ("not", BinExpr("!=", Variable(x), Variable(y))) => BinExpr("==", Variable(x), Variable(y))
-      case ("not", BinExpr(">", Variable(x), Variable(y))) => BinExpr("<=", Variable(x), Variable(y))
-      case ("not", BinExpr("<", Variable(x), Variable(y))) => BinExpr(">=", Variable(x), Variable(y))
-      case ("not", BinExpr("<=", Variable(x), Variable(y))) => BinExpr(">", Variable(x), Variable(y))
-      case ("not", BinExpr(">=", Variable(x), Variable(y))) => BinExpr("<", Variable(x), Variable(y))
-
-      case ("not", FalseConst()) => TrueConst()
-      case ("not", TrueConst()) => FalseConst()
-      case ("not", Unary("not", x)) => simplify(x)
-
-      case ("-", Unary("-", x)) => simplify(x)
-      case ("-", FloatNum(x)) => FloatNum(-x)
-      case ("-", IntNum(x)) => IntNum(-x)
-
-      case _ => new Unary(unary.op, unary.expr)
-    }
-  }
-
-  def SimplifyWhile(instr: WhileInstr): Node = {
-    (simplify(instr.cond), simplify(instr.body)) match {
-      case (FalseConst(), body) => null
-      case e => WhileInstr(e._1, e._2)
-    }
-  }
-
-  def SimplifyIfElseExpr(expr: IfElseExpr): Node = {
-    (simplify(expr.cond), simplify(expr.left), simplify(expr.right)) match {
-      case (TrueConst(), left, _) => left
-      case (FalseConst(), _, right) => right
-      case (cond, left, right) => IfElseExpr(cond, left, right)
-    }
-  }
-
-  def SimplifyIfElseInstr(instr: IfElseInstr): Node = {
-    (simplify(instr.cond), simplify(instr.left), simplify(instr.right)) match {
-      case (TrueConst(), left, _) => left
-      case (FalseConst(), _, right) => right
-      case (cond, left, right) => IfElseInstr(cond, left, right)
-    }
-  }
-
-
-  def SimplifyIfInstr(instr: IfInstr): Node = {
-    (simplify(instr.cond), simplify(instr.left)) match {
-      case (TrueConst(), expr) => expr
-      case (FalseConst(), _) => null
-      case (cond, expr) => IfInstr(cond, expr)
-    }
-  }
-
-  def remove_dead_assignments(nodeList: List[Node]): List[Node] = {
-    nodeList match {
-      case Assignment(x, s) :: Assignment(y, t) :: Nil if x equals y =>
-        Assignment(y, t) :: Nil
-
-      case Assignment(x, _) :: Assignment(y, t) :: tail if x equals y =>
-        remove_dead_assignments(Assignment(y, t) :: tail)
-
-      case Assignment(x, s) :: Assignment(y, t) :: tail =>
-        Assignment(x, s) :: remove_dead_assignments(Assignment(y, t) :: tail)
-
-      case other => other
-    }
-  }
 }
