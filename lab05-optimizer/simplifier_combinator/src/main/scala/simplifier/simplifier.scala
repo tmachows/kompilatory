@@ -10,52 +10,53 @@ import scala.math.pow
 object Simplifier {
 
   def simplify(node: Node): Node = node match {
-    // na samym poczatku musza byc patterny najbardziej szczegolowe, zeby te bardziej ogolne ich
-    // nie "zjadly" :)
+    // dopasowania - od bardziej szczegolowych, do bardziej ogolnych
 
-    // konkatenacja tupli i list na samym poczatku (albowiem j.w.):
+    // konkatenacja krotek i list
     case BinExpr("+", Tuple(l1), Tuple(l2)) => Tuple((l1 ++ l2) map simplify)
     case BinExpr("+", ElemList(l1), ElemList(l2)) => ElemList((l1 ++ l2) map simplify)
+    // upraszczanie slownikow
     case KeyDatumList(list) => SimplifyKeyDatumList(list)
+    // upraszczanie konstrukcji
     case WhileInstr(cond, body) => SimlifyWhileInstr(cond, body)
     case IfElseInstr(cond, left, right) => SimplifyIfElseInstr(cond, left, right)
     case IfInstr(cond, left) => SimplifyIfInstr(cond, left)
     case IfElseExpr(cond, left, right) => SimplifyIfElseExpr(cond, left, right)
     case Assignment(Variable(x), expr) => SimplifyAssignment(x, expr)
-    // <ewaluacja wyrazen> --------------------------------------------------------------------------
+    // ewaluacja wyrazen (jesli to mozliwe)
     case BinExpr(op, IntNum(x), IntNum(y)) => SimplifyBinExprIntInt(op, x, y)
     case BinExpr(op, FloatNum(x), FloatNum(y)) => SimplifyBinExprFloatFloat(op, x, y)
     case BinExpr(op, IntNum(x), FloatNum(y)) => SimplifyBinExprIntFloat(op, x, y)
     case BinExpr(op, FloatNum(x), IntNum(y)) => SimplifyBinExprFloatInt(op, x, y)
-    case BinExpr("==", x, y) if x == y => TrueConst()
-    case BinExpr(">=", x,y)  if x == y => TrueConst()
-    case BinExpr("<=", x,y)  if x == y => TrueConst()
-    case BinExpr("!=", x,y)  if x == y => FalseConst()
-    case BinExpr("<", x,y)   if x == y => FalseConst()
-    case BinExpr(">", x,y)   if x == y => FalseConst()
-    case BinExpr("or", x ,y) if x == y => x
-    case BinExpr("and", x,y) if x == y => x
-    // </ewaluacja wyrazen> --------------------------------------------------------------------------
+    case BinExpr("==", x, y)  if x == y => TrueConst()
+    case BinExpr(">=", x, y)  if x == y => TrueConst()
+    case BinExpr("<=", x, y)  if x == y => TrueConst()
+    case BinExpr("!=", x, y)  if x == y => FalseConst()
+    case BinExpr("<", x, y)   if x == y => FalseConst()
+    case BinExpr(">", x, y)   if x == y => FalseConst()
+    case BinExpr("or", x, y)  if x == y => x
+    case BinExpr("and", x, y) if x == y => x
+    // upraszczanie wyrazen unarnych
     case Unary("not", expr) => SimplifyUnaryNot(expr)
     case Unary("-", expr) => SimplifyUnary(expr)
-
-    // <upraszczanie wyrazen binarnych typu x + 0> --------------------------------------------------------------
     // balansowanie drzew:
     case (BinExpr("+", BinExpr("+", BinExpr("+", BinExpr("*", x1, y1), BinExpr("*", x2, y2)), BinExpr("*", x3, y3)), BinExpr("*", x4, y4)))
       => simplify(BinExpr("+", BinExpr("+", BinExpr("*", x1, y1), BinExpr("*", x2, y2)), BinExpr("+", BinExpr("*", x3, y3), BinExpr("*", x4, y4))))
-
-    case BinExpr("-", left, right)    => SimplifyBinExprMinus(left, right)
-    case BinExpr("+", left, right)    => SimplifyBinExprPlus(left, right)
-    case BinExpr("*", left, right)    => SimplifyBinExprMul(left, right)
-    case BinExpr("/", left, right) => SimplifyBinExprDiv(left, right)
-    case BinExpr("**", left, right)    => SimplifyBinExprPow(left, right)
+    // upraszczanie wyrazen typu x + 0
+    case BinExpr("-", left, right)   => SimplifyBinExprMinus(left, right)
+    case BinExpr("+", left, right)   => SimplifyBinExprPlus(left, right)
+    case BinExpr("*", left, right)   => SimplifyBinExprMul(left, right)
+    case BinExpr("/", left, right)   => SimplifyBinExprDiv(left, right)
+    case BinExpr("**", left, right)  => SimplifyBinExprPow(left, right)
     case BinExpr("and", left, right) => SimplifyBinExprAnd(left, right)
-    case BinExpr("or", left, right) => SimplifyBinExprOr(left, right)
-    // </upraszczanie wyrazen binarnych typu x + 0> --------------------------------------------------------------
+    case BinExpr("or", left, right)  => SimplifyBinExprOr(left, right)
+    // upraszczanie listy nodow
     case NodeList(list) => SimplifyNodeList(list)
     // w pozostalych przypadkach nie da sie juz nic uproscic:
     case n => n
   }
+
+
   // jesli mamy liste node'ow, to upraszczamy kazdy element z osobna:
   def SimplifyNodeList(list: List[Node]): Node = {
     list match {
