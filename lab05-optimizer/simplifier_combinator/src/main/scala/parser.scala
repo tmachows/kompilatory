@@ -16,6 +16,11 @@ class Parser extends JavaTokenParsers {
   val maxPrec = precedenceList.length-1
   
   protected override val whiteSpace = """(\t|\r|[ ]|#.*|(?s)/\*.*?\*/)+""".r
+
+  val id: Parser[String] = not(reserved) ~> """[a-zA-Z_]\w*""".r
+
+  val lpar = rep1(newl) ~ "{" ~ rep(newl)
+  val rpar = rep(newl) ~ "}" ~ rep1(newl)
   
   val newl: Parser[Node] = """(\r?\n)|\r""".r ^^ StringConst
 
@@ -25,6 +30,7 @@ class Parser extends JavaTokenParsers {
                                  "else\\b".r |
                                  "False\\b".r |
                                  "if\\b".r |
+                                 "elif\\b".r |
                                  "is\\b".r |
                                  "input\\b".r |
                                  "lambda\\b".r |
@@ -34,11 +40,6 @@ class Parser extends JavaTokenParsers {
                                  "return\\b".r |
                                  "True\\b".r |
                                  "while\\b".r
-
-  val id: Parser[String] = not(reserved) ~> """[a-zA-Z_]\w*""".r
-
-  val lpar = rep1(newl) ~ "{" ~ rep(newl)
-  val rpar = rep(newl) ~ "}" ~ rep1(newl)
 
   val floatLiteral: Parser[Double] = """\d+(\.\d*)|\.\d+""".r ^^ { _.toDouble }
   
@@ -107,7 +108,8 @@ class Parser extends JavaTokenParsers {
   }
 
 
-  def binary(level: Int): Parser[Node] = if (level>maxPrec) unary
+  def binary(level: Int): Parser[Node] =
+    if (level>maxPrec) unary
     else if(level==maxPrec) rep1sep(binary(level+1), "**") ^^ {_.reduceRight(BinExpr("**", _, _))}
     else chainl1( binary(level+1), binaryOp(level) ) // equivalent to binary(level+1) * binaryOp(level)
 

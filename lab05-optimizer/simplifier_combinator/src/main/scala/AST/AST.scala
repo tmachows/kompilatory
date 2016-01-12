@@ -19,7 +19,7 @@ sealed abstract class Node {
 }
 
 
-// w prostych case classach nie trzeba przeciazac metody equals
+// proste klasy bez przeciazania equals
 case class IntNum(value: Integer) extends Node {
     override def toStr = value.toString
 }
@@ -44,7 +44,7 @@ case class Variable(name: String) extends Node {
     override def toStr = name
 }
 
-// ale w bardziej zlozonych juz tak
+// klasy z przeciazaniem equals
 case class Unary(op: String, expr: Node) extends Node {
 
     override def toStr = {
@@ -83,7 +83,6 @@ case class BinExpr(op: String, left: Node, right: Node) extends Node {
         leftStr + " " + op + " " + rightStr
     }
 
-    // magia pattern matchy
     override def equals(that: Any) = that match {
         case BinExpr("+", l, r)   if l == right && r == left  && op == "+"   => true
         case BinExpr("*", l, r)   if l == right && r == left  && op == "*"   => true

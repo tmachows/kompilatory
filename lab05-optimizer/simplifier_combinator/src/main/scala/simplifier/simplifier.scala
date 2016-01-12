@@ -13,7 +13,7 @@ object Simplifier {
     // dopasowania - od bardziej szczegolowych, do bardziej ogolnych
 
     // konkatenacja krotek i list
-    case BinExpr("+", Tuple(l1), Tuple(l2)) => Tuple((l1 ++ l2) map simplify)
+    case BinExpr("+", Tuple(t1), Tuple(t2)) => Tuple((t1 ++ t2) map simplify)
     case BinExpr("+", ElemList(l1), ElemList(l2)) => ElemList((l1 ++ l2) map simplify)
     // upraszczanie slownikow
     case KeyDatumList(list) => SimplifyKeyDatumList(list)
@@ -39,7 +39,7 @@ object Simplifier {
     // upraszczanie wyrazen unarnych
     case Unary("not", expr) => SimplifyUnaryNot(expr)
     case Unary("-", expr) => SimplifyUnary(expr)
-    // balansowanie drzew:
+    // balansowanie drzewa dla mnozenia
     case (BinExpr("+", BinExpr("+", BinExpr("+", BinExpr("*", x1, y1), BinExpr("*", x2, y2)), BinExpr("*", x3, y3)), BinExpr("*", x4, y4)))
       => simplify(BinExpr("+", BinExpr("+", BinExpr("*", x1, y1), BinExpr("*", x2, y2)), BinExpr("+", BinExpr("*", x3, y3), BinExpr("*", x4, y4))))
     // upraszczanie wyrazen typu x + 0
@@ -63,7 +63,7 @@ object Simplifier {
       case Nil => EmptyInstr()
       case (nl :: Nil) => nl match {
         case EmptyInstr() => EmptyInstr()
-        case NodeList(l) => simplify(NodeList(l map simplify)) // zostawiamy tylko jeden layer node listow
+        case NodeList(l) => simplify(NodeList(l map simplify))
         case n =>
           val sN = simplify(n)
           if (sN != n) simplify(NodeList(List(simplify(n)))) else NodeList(List(sN))
@@ -143,8 +143,7 @@ object Simplifier {
       }
 
       // power laws:
-      //case (BinExpr("**", IntNum(x), IntNum(y)), expr) => simplify(BinExpr("**", IntNum(x), BinExpr("**", IntNum(y), expr))) // dla testow tylko
-      case (BinExpr("**", l, r), expr) => simplify(BinExpr("**", l, BinExpr("*", r, expr))) // to powinno byc, tego powyzej -- nie
+      case (BinExpr("**", l, r), expr) => simplify(BinExpr("**", l, BinExpr("*", r, expr)))
 
       case (exprL, exprR) =>
         val sL = simplify(exprL)
@@ -156,7 +155,6 @@ object Simplifier {
   def SimplifyBinExprDiv(left: Node, right: Node): Node = {
     (left, right) match {
       case (exprL, exprR) if exprL == exprR => IntNum(1)
-      // nazwy ponizej moga nie byc najbardziej czytelne, ale to raczej przez specyfike problemu :)
       case (exprNum, BinExpr("/", denomNum, denomDenom)) =>
         val sNum = simplify(exprNum)
         val sDenomNum = simplify(denomNum)
@@ -169,7 +167,7 @@ object Simplifier {
 
       // power laws:
       case (BinExpr("**", leftL, rightL), BinExpr("**", leftR, rightR)) if leftL == leftR =>
-        simplify(BinExpr("**", leftL, BinExpr("-", rightL, rightR))) // TODO: czy potrzebny wewnetrzny simplify?
+        simplify(BinExpr("**", leftL, BinExpr("-", rightL, rightR)))
 
       case (expr, IntNum(n)) if n == 1 => simplify(expr)
       case (expr, FloatNum(n)) if n == 1 => simplify(expr)
@@ -209,7 +207,7 @@ object Simplifier {
 
       // power laws:
       case (BinExpr("**", leftL, rightL), BinExpr("**", leftR, rightR)) if leftL == leftR =>
-        simplify(BinExpr("**", leftL, BinExpr("+", rightL, rightR))) // TODO: czy potrzebny wewnetrzny simplify?
+        simplify(BinExpr("**", leftL, BinExpr("+", rightL, rightR)))
 
       case (expr, BinExpr("/", exprNum, exprDenom)) => simplify(BinExpr("/", BinExpr("*", expr, exprNum), exprDenom))
       case (BinExpr("/", exprNum, exprDenom), expr) => simplify(BinExpr("/", BinExpr("*", expr, exprNum), exprDenom))
@@ -229,27 +227,12 @@ object Simplifier {
       case (Unary("-", exprU), expr) => simplify(BinExpr("-", expr, exprU))
       case (expr, Unary("-", exprU)) => simplify(BinExpr("-", expr, exprU))
 
-      // balansowanie drzewa, w razie czego:
-      //      case (BinExpr("+",
-      //              BinExpr("+",
-      //                 BinExpr("*", x1, y1),
-      //                 BinExpr("*", x2, y2)),
-      //              BinExpr("*", x3, y3)),
-      //            BinExpr("*", x4, y4)) =>
-      //
-      //          simplify(BinExpr("+",
-      //            simplify(BinExpr("+",
-      //              simplify(BinExpr("*", x1, y1)),
-      //              simplify(BinExpr("*", x2, y2)))),
-      //            simplify(BinExpr("+",
-      //              simplify(BinExpr("*", x2, y3)),
-      //              simplify(BinExpr("*", x4, y4)))))
-      //          )
-      // distributive properties of "*":
+
+      // rozdzielnosc mnozenia
       case (BinExpr("*", l, r), expr) if expr == l => simplify(BinExpr("*", BinExpr("+", r, IntNum(1)), l))
       case (BinExpr("*", l, r), expr) if expr == r => simplify(BinExpr("*", BinExpr("+", l, IntNum(1)), r))
 
-      // wzory sk. mnozenia:
+      // wzory sk. mnozenia
       case (BinExpr("+", BinExpr("**", x1, IntNum(a)), BinExpr("*", BinExpr("*", x2, IntNum(b)), y2)), BinExpr("**", y3, IntNum(c)))
         if a == 2 && b == 2 && c == 2 && (x1 == x2 && y2 == y3) =>
         simplify(BinExpr("**", BinExpr("+", x1, y2), IntNum(2)))
@@ -269,7 +252,7 @@ object Simplifier {
           if (s1 != e1 || s2 != e2) simplify(BinExpr("+", s1, s2)) else BinExpr("+", s1, s2)
         }
 
-      // distributive properties of "/":
+      // rozdzielnosc dzielenia
       case (e1@BinExpr("/", l1, r1), e2@BinExpr("/", l2, r2)) =>
         if (r1 == r2) BinExpr("/", BinExpr("+", l1, l2), r1)
         else {
@@ -278,7 +261,7 @@ object Simplifier {
           if (s1 != e1 || s2 != e2) simplify(BinExpr("+", s1, s2)) else BinExpr("+", s1, s2)
         }
 
-      // commutative properties:
+      // przemiennosc
       case (e@BinExpr("-", exprL, exprR), expr) =>
         if (exprR == expr) simplify(exprL)
         else BinExpr("+", simplify(e), simplify(expr))
@@ -301,7 +284,7 @@ object Simplifier {
       case (expr, FloatNum(n)) if n == 0 => expr
       case (FloatNum(n), expr) if n == 0 => simplify(Unary("-", expr))
 
-      // distributive properties of "*":
+      // rozdzielnosc mnozenia
       case (BinExpr("*", l, r), expr) if expr == l => simplify(BinExpr("*", BinExpr("-", r, IntNum(1)), l))
       case (BinExpr("*", l, r), expr) if expr == r => simplify(BinExpr("*", BinExpr("-", l, IntNum(1)), r))
 
@@ -316,7 +299,7 @@ object Simplifier {
           if (s1 != e1 || s2 != e2) simplify(BinExpr("-", s1, s2)) else BinExpr("-", s1, s2)
         }
 
-      // distributive properties of "/":
+      // rozdzielnosc dzielenia
       case (e1@BinExpr("/", l1, r1), e2@BinExpr("/", l2, r2)) =>
         if (r1 == r2) BinExpr("/", BinExpr("-", l1, l2), r1)
         else {
@@ -339,7 +322,7 @@ object Simplifier {
         if a == 2 && b == 2 && c == 2 && y1 == x2 && ((x1 == x3 && y1 == y3) || (x1 == y3 && y1 == x3)) =>
         BinExpr("**", x1, IntNum(2))
 
-      // commutative properties:
+      // przemiennosc
       case (e@BinExpr("+", exprL, exprR), expr) =>
         if (exprL == expr) simplify(exprR)
         else if (exprR == expr) simplify(exprL)
@@ -359,7 +342,6 @@ object Simplifier {
   def SimplifyUnary(expr: Node): Node = {
     expr match {
       case Unary("-", expr2) => simplify(expr2)
-      // tutaj jeszcze tak naprawde czesc ewaluacji, ale juz zeby nie bylo az takiej redundancji tych kejsow...
       case IntNum(x) => IntNum(-x)
       case FloatNum(x) => FloatNum(-x)
       case expr2 => Unary("-", simplify(expr2))
